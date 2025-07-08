@@ -3,11 +3,13 @@ import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import Home from './pages/Home';
 import Booklist from './pages/Booklist';
 import Addbook from './pages/Addbook';
+import Navbar from './components/Navbar';
 
 function App() {
   return (
     <Router>
       <div className='text-2xl p-3'>
+        <Navbar />
         <Routes>
           <Route path='/' element={<Home />}></Route>
           <Route path='/add' element={<Addbook />}></Route>

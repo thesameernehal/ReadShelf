@@ -18,7 +18,7 @@ app.use(cors());  // allow frontend access
 app.use(express.json()); // to parse JSON requests
 
 // Using Routes
-app.use('api/books', require('./routes/bookRoutes'));
+app.use('/api/books', require('./routes/bookRoutes'));
 
 
 // Connect to MongoDb and starting the server
@@ -31,3 +31,5 @@ mongoose.connect(process.env.MONGO_URI, {
         app.listen(PORT, () => console.log(`Server Running on port ${PORT}`))
     })
     .catch(err => console.log(err)); 
+
+

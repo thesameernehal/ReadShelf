@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react'
 import axios from 'axios'
 
 const Booklist = () => {
+
+    // useState stores the data and useEffect is the action runner (fetch, filter, scroll, set timer etc.)
     const [books, setbooks] = useState([]);
     const [loading, setloading] = useState(true);
     const [error, seterror] = useState(null);
@@ -21,9 +23,19 @@ const Booklist = () => {
 
         fetchBooks();
     }, []);
+    // The empty array [] means: Run only once when the component mounts (loads)
 
     if (loading) return <p>Loading...</p>;
     if (error) return <p>{error}</p>;
+
+    const handleDelete = async (id) => {
+        try {
+            await axios.delete(`http://localhost:5000/api/books/${id}`)
+        }
+        catch (err) {
+            console.log("Failed to delete book :" + err);
+        }
+    };
 
     return (
         <div className='p-6'>
@@ -37,6 +49,9 @@ const Booklist = () => {
                             <h3 className='font-semibold text-lg'>{book.title}</h3>
                             <p className='text-sm text-gray-800'>Author : {book.author}</p>
                             <p className='text-sm text-gray-600'>Status : {book.status}</p>
+
+                            <button onClick={() => handleDelete(book._id)} className='mt-2 px-4 py-1 rounded-full
+                            bg-red-500 text-white hover:bg-red-700'>Delete</button>
                         </li>
                     ))}
                 </ul>

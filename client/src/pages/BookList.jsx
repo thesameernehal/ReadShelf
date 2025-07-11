@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import axios from 'axios'
+import { Link } from 'react-router-dom';
 
 const Booklist = () => {
 
@@ -52,11 +53,16 @@ const Booklist = () => {
 
                             <button onClick={() => handleDelete(book._id)} className='mt-2 px-4 py-1 rounded-full
                             bg-red-500 text-white hover:bg-red-700'>Delete</button>
+
+                            <Link
+                                to={`/edit/${book._id}`} className='mt-2 ml-2 px-4 py-1 rounded-full
+                            bg-blue-500 text-white hover:bg-blue-700'>Edit</Link>
                         </li>
                     ))}
                 </ul>
-            )}
-        </div>
+            )
+            }
+        </div >
     );
 };
 

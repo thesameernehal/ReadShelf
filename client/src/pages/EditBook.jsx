@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
 import axios from 'axios'
+import { useNavigate } from 'react-router-dom'
 
 
 const EditBook = () => {
 
   const { id } = useParams(); // We will extract Book ID from URL 
+  const navigate = useNavigate();
 
   const [title, setTitle] = useState("")
   const [author, setAuthor] = useState("")
@@ -33,10 +35,28 @@ const EditBook = () => {
 
   if (loading) return <p>Loading Book...</p>;
   if (error) return <p>{error}</p>
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    try {
+      await axios.put(`http://localhost:5000/api/books/${id}`, {
+        title,
+        author,
+        status
+      });
+      alert('Book updated successfully !!!')
+      navigate('/books')
+    } catch (err) {
+      console.log('Update Failed : ', err);
+      alert('Failed to update Book')
+    }
+  };
+
   return (
     <div>
       <h2>Edit Book</h2>
-      <form action="">
+      <form action="" onSubmit={handleSubmit}>
         <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder='Book Title' />
 
         <input type="text" value={author} onChange={(e) => setAuthor(e.target.value)} placeholder='Author' />

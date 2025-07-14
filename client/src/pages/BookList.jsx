@@ -8,6 +8,8 @@ const Booklist = () => {
     const [books, setbooks] = useState([]);
     const [loading, setloading] = useState(true);
     const [error, seterror] = useState(null);
+    const [filter, setfilter] = useState("All")
+
 
     useEffect(() => {
         const fetchBooks = async () => {
@@ -38,14 +40,28 @@ const Booklist = () => {
         }
     };
 
+    const filteredBooks = filter === "All" ? books : books.filter((book) => book.status === filter);
+
     return (
         <div className='p-6'>
             <h2 className='text-2xl font-bold text-center mb-4'>Your Book List</h2>
+            <div className='mb-4 text-center'>
+                <label className='mr-2 font-semibold'>Filter by Status : </label>
+                <select value={filter}
+                    onChange={(e) => setfilter(e.target.value)}
+                    className='p-1 border rounded'
+                >
+                    <option value="All">All</option>
+                    <option value="Reading">Reading</option>
+                    <option value="Completed">Completed</option>
+                    <option value="Wishlist">Wishlist</option>
+                </select>
+            </div>
             {books.length === 0 ? (
                 <p className='text-center'>No Books Added Yet</p>
             ) : (
                 <ul className='space-y-4'>
-                    {books.map((book) => (
+                    {filteredBooks.map((book) => (
                         <li key={book._id} className='bg-slate-100 p-4 rounded shadow'>
                             <h3 className='font-semibold text-lg'>{book.title}</h3>
                             <p className='text-sm text-gray-800'>Author : {book.author}</p>

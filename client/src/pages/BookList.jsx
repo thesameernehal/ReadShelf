@@ -9,6 +9,7 @@ const Booklist = () => {
     const [loading, setloading] = useState(true);
     const [error, seterror] = useState(null);
     const [filter, setfilter] = useState("All")
+    const [searchterm, setsearchterm] = useState("")
 
 
     useEffect(() => {
@@ -40,7 +41,11 @@ const Booklist = () => {
         }
     };
 
-    const filteredBooks = filter === "All" ? books : books.filter((book) => book.status === filter);
+    const filteredBooks = books
+        .filter((book) => filter === "All" || book.status === filter)
+        .filter((book) =>
+            book.title.toLowerCase().includes(searchterm.toLowerCase()) || book.author.toLowerCase().includes(searchterm.toLowerCase())
+        );
 
     return (
         <div className='p-6'>
@@ -56,6 +61,9 @@ const Booklist = () => {
                     <option value="Completed">Completed</option>
                     <option value="Wishlist">Wishlist</option>
                 </select>
+
+                {/* Search Functionality  */}
+                <input type="text" value={searchterm} placeholder='Search by Title or Author' onChange={(e) => setsearchterm(e.target.value)} className='p-2 border rounded w-1/2 ml-2' />
             </div>
             {books.length === 0 ? (
                 <p className='text-center'>No Books Added Yet</p>

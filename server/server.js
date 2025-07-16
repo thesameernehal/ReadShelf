@@ -17,9 +17,11 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());  // allow frontend access
 app.use(express.json()); // to parse JSON requests
 
+const authRoutes = require('./routes/auth');
+
 // Using Routes
 app.use('/api/books', require('./routes/bookRoutes'));
-app.use('/api/auth', require('./routes/auth'));
+app.use('/api/auth', authRoutes);
 
 
 // Connect to MongoDb and starting the server

@@ -1,11 +1,12 @@
 
 const express = require('express');
 const router = express.Router();
-const bcrypt = require('bcrypt.js');
+const bcrypt = require('bcryptjs');
 const User = require('../models/User');
+const { findOne } = require('../models/Book');
 
 // Route : POST / api / auth / register
-route.post('/register', async (req, res) => {
+router.post('/register', async (req, res) => {
     const { username, name, email, password } = req.body;
 
     try {
@@ -18,7 +19,7 @@ route.post('/register', async (req, res) => {
         }
 
         // hash password 
-        const salt = await bcrypt.gensalt(10);
+        const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
 
         // create new user 
@@ -36,6 +37,32 @@ route.post('/register', async (req, res) => {
     } catch (err) {
         console.error(err.message);
         res.status(500).json({ message: "Server error" })
+    }
+});
+
+// Login Route 
+router.post('/login', async (req, res) => {
+
+    const { email, password } = req.body;
+
+    try {
+        // find user by email
+        const existingUser = await User.findOne({ email });
+        if (!existingUser) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        // compare password
+        const isMatch = await bcrypt.compare(password, existingUser.password);
+        if (!isMatch) {
+            return res.status(401).json({ message: 'Invalid Password' });
+        }
+
+        // Success
+        res.status(200).json({ message: 'Login Successful', user: existingUser });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: 'Something went wrong' })
     }
 });
 

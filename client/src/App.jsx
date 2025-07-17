@@ -6,6 +6,8 @@ import Addbook from './pages/Addbook';
 import Navbar from './components/Navbar';
 import EditBook from './pages/EditBook';
 import Register from './pages/Register';
+import Login from './pages/Login'; 
+
 
 function App() {
   return (
@@ -18,6 +20,7 @@ function App() {
           <Route path='/books' element={<Booklist />} ></Route>
           <Route path='/edit/:id' element={<EditBook />}></Route>
           <Route path='/register' element={<Register />}></Route>
+          <Route path='/login' element={<Login />}></Route>
         </Routes>
       </div>
     </Router>

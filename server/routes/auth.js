@@ -9,9 +9,10 @@ const { findOne } = require('../models/Book');
 router.post('/register', async (req, res) => {
     const { username, name, email, password } = req.body;
 
+    const trimmedEmail = email.trim();
     try {
         // user already exists
-        const existingUser = await User.findOne({ email });
+        const existingUser = await User.findOne({ email: trimmedEmail });
         if (existingUser) {
             return res.status(400).json({
                 message: "User already exists..."
@@ -26,7 +27,7 @@ router.post('/register', async (req, res) => {
         const newUser = new User({
             username,
             name,
-            email,
+            email: trimmedEmail,
             password: hashedPassword
         });
 
@@ -42,12 +43,15 @@ router.post('/register', async (req, res) => {
 
 // Login Route 
 router.post('/login', async (req, res) => {
-
-    const { email, password } = req.body;
-
     try {
+        const { email, password } = req.body;
+
+        // Trim the email to remove spaces
+        const trimmedEmail = email.trim();
+
+
         // find user by email
-        const existingUser = await User.findOne({ email });
+        const existingUser = await User.findOne({ email: trimmedEmail });
         if (!existingUser) {
             return res.status(404).json({ message: 'User not found' });
         }
@@ -55,13 +59,20 @@ router.post('/login', async (req, res) => {
         // compare password
         const isMatch = await bcrypt.compare(password, existingUser.password);
         if (!isMatch) {
-            return res.status(401).json({ message: 'Invalid Password' });
+            return res.status(401).json({ message: 'Invalid Credentials' });
         }
 
         // Success
-        res.status(200).json({ message: 'Login Successful', user: existingUser });
+        res.status(200).json({
+            message: 'Login Successful', user: {
+                id: existingUser._id,
+                username: existingUser.username,
+                name: existingUser.name,
+                email: existingUser.email
+            }
+        });
     } catch (err) {
-        console.error(err);
+        console.error('Login error : ', err);
         res.status(500).json({ message: 'Something went wrong' })
     }
 });

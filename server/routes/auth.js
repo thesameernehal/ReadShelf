@@ -1,9 +1,10 @@
-
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const User = require('../models/User');
 const { findOne } = require('../models/Book');
+const jwt = require('jsonwebtoken');
+const verifyToken = require('../middleWare/verifyToken');
 
 // Route : POST / api / auth / register
 router.post('/register', async (req, res) => {
@@ -62,9 +63,18 @@ router.post('/login', async (req, res) => {
             return res.status(401).json({ message: 'Invalid Credentials' });
         }
 
+        // Generate JWT token 
+        const token = jwt.sign(
+            { userId: existingUser._id },
+            process.env.JWT_SECRET,
+            { expiresIn: '1h' }
+        );
+
         // Success
         res.status(200).json({
-            message: 'Login Successful', user: {
+            message: 'Login Successful',
+            token,
+            user: {
                 id: existingUser._id,
                 username: existingUser.username,
                 name: existingUser.name,
@@ -75,6 +85,11 @@ router.post('/login', async (req, res) => {
         console.error('Login error : ', err);
         res.status(500).json({ message: 'Something went wrong' })
     }
+});
+
+// route to verify token 
+router.get('/me', verifyToken, (req, res) => {
+    res.status(200).json({ user: req.user });
 });
 
 module.exports = router; 

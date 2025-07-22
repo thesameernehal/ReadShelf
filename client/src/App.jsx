@@ -6,7 +6,8 @@ import Addbook from './pages/Addbook';
 import Navbar from './components/Navbar';
 import EditBook from './pages/EditBook';
 import Register from './pages/Register';
-import Login from './pages/Login'; 
+import Login from './pages/Login';
+import ProtectedRoute from './components/ProtectedRoute';
 
 
 function App() {
@@ -16,8 +17,13 @@ function App() {
         <Navbar />
         <Routes>
           <Route path='/' element={<Home />}></Route>
-          <Route path='/add' element={<Addbook />}></Route>
-          <Route path='/books' element={<Booklist />} ></Route>
+          <Route path='/add' element={
+            <ProtectedRoute>
+              <Addbook />
+            </ProtectedRoute>}></Route>
+          <Route path='/books' element={
+            <ProtectedRoute>
+              <Booklist /></ProtectedRoute>} ></Route>
           <Route path='/edit/:id' element={<EditBook />}></Route>
           <Route path='/register' element={<Register />}></Route>
           <Route path='/login' element={<Login />}></Route>

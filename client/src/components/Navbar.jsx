@@ -1,49 +1,47 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useContext } from 'react';
+import { AuthContext } from '../context/AuthContext';
 
 const Navbar = () => {
     const navigate = useNavigate();
-    const [isLoggedIn, setisLoggedIn] = useState(false);
-
-    useEffect(() => {
-        const token = localStorage.getItem('token');
-        setisLoggedIn(!!token); // True if token exists
-    }, []);
+    const { user, logout } = useContext(AuthContext);
 
     const handleLogout = () => {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        setisLoggedIn(false);
+        logout();
         navigate('/login');
     }
 
     return (
+        <nav className='bg-gray-800 text-white shadow-md'>
+            <div className='max-w-7xl mx-auto px-4 py-3 flex justify-between items-center'>
+                <div className='text-xl font-semibold tracking-wide'>
+                    <Link to="/">ReadShelf</Link>
+                </div>
 
-        <div>
+                <ul className='flex space-x-6 items-center text-sm font-medium'>
+                    <li><Link to="/" className='hover:text-yellow-400 transition'>Home</Link></li>
 
-            <nav className="bg-slate-900 text-white px-6 py-4 flex justify-between items-center">
+                    {!user && (
+                        <>
+                            <li><Link to='/register' className='hover:text-yellow-400 transition'>Register</Link></li>
+                            <li><Link to='/login' className='hover:text-yellow-400 transition'>Login</Link></li>
+                        </>
+                    )}
 
-                <h1 className="text-xl font-bold">📚 ReadShelf</h1>
+                    {user && (
+                        <>
 
-                <Link to='/' className="hover:text-yellow-400">Home</Link>
-
-                {isLoggedIn ? (
-                    <>
-                        <Link to="/add" className="hover:text-yellow-400">Add Book</Link>
-                        <Link to="/books" className="hover:text-yellow-400">Book List</Link>
-                        <button onClick={handleLogout} className='text-red-500'>Logout</button>
-                    </>
-                ) : (
-
-                    <>
-                        <Link to="/register" className="hover:text-yellow-400">Register</Link>
-
-                        <Link to="/login" className="hover:text-yellow-400">Login</Link>
-                    </>
-                )}
-            </nav>
-        </div>
+                            <li><Link to='/books' className='hover:text-yellow-400 transition'>Book List</Link></li>
+                            <li><Link to='/add' className='hover:text-yellow-400 transition'>Add Book</Link></li>
+                            <li>
+                                <button onClick={logout} className='bg-red-500 hover:bg-red-700 text-white px-3 py-1 rounded-md transition'>Logout</button>
+                            </li>
+                        </>
+                    )}
+                </ul>
+            </div>
+        </nav>
     );
 };
 

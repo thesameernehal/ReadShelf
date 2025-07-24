@@ -4,7 +4,7 @@ const bcrypt = require('bcryptjs');
 const User = require('../models/User');
 const { findOne } = require('../models/Book');
 const jwt = require('jsonwebtoken');
-const verifyToken = require('../middleWare/verifyToken');
+const verifyToken = require('../routes/middleWare/verifyToken');
 
 // Route : POST / api / auth / register
 router.post('/register', async (req, res) => {

@@ -30,20 +30,27 @@ const Addbook = () => {
         }
     }
     return (
-        <div className='text-center p-4'>
-            <h2 className='font-semibold text-2xl'>This is AddBook Page</h2>
+        <div className='min-h-screen bg-gray-900 text-white flex items-center justify-center px-4'>
 
-            <form onSubmit={handleSubmit}>
-                <input type="text" value={title} onChange={(e) => settitle(e.target.value)} />
-                <input type="text" value={author} onChange={(e) => setauthor(e.target.value)} />
-                <select value={status} onChange={(e) => setstatus(e.target.value)}>
-                    <option>Reading</option>
-                    <option>Completed</option>
-                    <option>Wishlist</option>
-                </select>
+            <div className='w-full max-w-md bg-gray-800 p-6 rounded-xl shadow-md'>
 
-                <button type='submit'>Add Book</button>
-            </form>
+                <h2 className='font-bold text-2xl text-center mb-6'>Add a New Book</h2>
+
+                <form onSubmit={handleSubmit} className='space-y-4'>
+                    <input type="text" placeholder='Book Title' value={title} onChange={(e) => settitle(e.target.value)} className='w-full p-3 rounded-md bg-gray-700 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500' required />
+
+                    <input type="text" placeholder='Author' value={author} onChange={(e) => setauthor(e.target.value)}
+                        className='w-full p-3 rounded-md bg-gray-700 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500' required />
+
+                    <select value={status} onChange={(e) => setstatus(e.target.value)} className='w-full text-white bg-gray-700 p-3 rounded-md placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500'>
+                        <option>Reading</option>
+                        <option>Completed</option>
+                        <option>Wishlist</option>
+                    </select>
+
+                    <button type='submit' className='w-full bg-green-600 hover:bg-green-700 text-black py-2 px-4 rounded-md font-semibold transition-colors'>Add Book</button>
+                </form>
+            </div>
         </div>
     )
 }

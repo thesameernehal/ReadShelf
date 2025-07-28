@@ -26,9 +26,41 @@ const Home = () => {
             </div>
 
             {/*  Background Image */}
-            <div className='mt-10 w-full max-w-4xl'>
-                <img src="https://images.unsplash.com/photo-1524995997946-a1c2e315a42f" alt="Bookshelf" className='rounded-2xl shadow-lg w-full object-cover'/>
+            <div className='mt-10 w-screen'>
+                <img src="https://images.unsplash.com/photo-1524995997946-a1c2e315a42f" alt="Bookshelf" className='h-auto w-full object-cover' />
             </div>
+
+
+            {/* Info Section */}
+            <section className='bg-gray-900 text-white py-12 px-4'>
+                <h2 className='text-3xl mb-10 text-center font-bold'>Why use ReadShelf ? </h2>
+
+                <div className='grid grid-cols-1 md:grid-cols-3 gap-6 mx-auto max-w-6xl'>
+                    {/* Cards */}
+                    <div className='className="bg-gray-800 rounded-xl p-6 shadow-lg hover:shadow-2xl hover:border hover:border-purple-500 hover:scale-105 transform transition-transform duration-300"
+'>
+                        <div className='text-4xl mb-4'>📚</div>
+                        <h3 className='text-xl font-semibold mb-2'>Track Your Reading</h3>
+                        <p className='text-gray-300'>Add books to your shelf and monitor your reading progress easily.</p>
+                    </div>
+
+                    <div className='className="bg-gray-800 rounded-xl p-6 shadow-lg hover:shadow-2xl hover:border hover:border-purple-500 hover:scale-105 transform transition-transform duration-300"
+'>
+                        <div className="text-4xl mb-4">🧠</div>
+                        <h3 className="text-xl font-semibold mb-2">Stay Organized</h3>
+                        <p className="text-gray-300">Sort books by status — Reading, Completed or Wishlist in one place.</p>
+                    </div>
+
+                    <div className='className="bg-gray-800 rounded-xl p-6 shadow-lg hover:shadow-2xl hover:border hover:border-purple-500 hover:scale-105 transform transition-transform duration-300"
+'>
+                        <div className="text-4xl mb-4">🌙</div>
+                        <h3 className="text-xl font-semibold mb-2">Dark Mode Ready</h3>
+                        <p className="text-gray-300">Enjoy a distraction-free, eye-comfortable reading experience anytime.</p>
+
+                    </div>
+                </div>
+            </section>
+
         </div>
     )
 }

@@ -22,6 +22,8 @@ const Navbar = () => {
                 <ul className='flex space-x-6 items-center text-sm font-medium'>
                     <li><Link to="/" className='hover:text-yellow-400 transition'>Home</Link></li>
 
+                    <li><Link to="/about" className='hover:text-yellow-400 transition'>About</Link></li>
+
                     {!user && (
                         <>
                             <li><Link to='/register' className='hover:text-yellow-400 transition'>Register</Link></li>

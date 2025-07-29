@@ -25,19 +25,13 @@ const Home = () => {
                 </div>
             </div>
 
-            {/*  Background Image */}
-            <div className='mt-10 w-screen'>
-                <img src="https://images.unsplash.com/photo-1524995997946-a1c2e315a42f" alt="Bookshelf" className='h-auto w-full object-cover' />
-            </div>
-
-
             {/* Info Section */}
             <section className='bg-gray-900 text-white py-12 px-4'>
                 <h2 className='text-3xl mb-10 text-center font-bold'>Why use ReadShelf ? </h2>
 
                 <div className='grid grid-cols-1 md:grid-cols-3 gap-6 mx-auto max-w-6xl'>
                     {/* Cards */}
-                    <div className='className="bg-gray-800 rounded-xl p-6 shadow-lg hover:shadow-2xl hover:border hover:border-purple-500 hover:scale-105 transform transition-transform duration-300"
+                    <div className='className="bg-gray-800 rounded-xl p-6 shadow-lg hover:shadow-2xl hover:border hover:border-purple-500 hover:scale-105 transform transition-transform duration-300 cursor-pointer"
 '>
                         <div className='text-4xl mb-4'>📚</div>
                         <h3 className='text-xl font-semibold mb-2'>Track Your Reading</h3>
@@ -59,6 +53,17 @@ const Home = () => {
 
                     </div>
                 </div>
+            </section>
+
+            {/* CTA - Call to Action  */}
+            <section className='bg-gray-950 text-center py-12 px-4 text-white'>
+
+                <h2 className='text-3xl font-bold mb-4'>Ready to take control of your reading journey?</h2>
+
+                <p className='text-gray-400 mb-6'>Sign up now and start building your personalized bookshelf.</p>
+
+                <Link to="/register" className='inline-block bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-xl shadow-lg transition duration-300'>
+                    Get Started</Link>
             </section>
 
         </div>

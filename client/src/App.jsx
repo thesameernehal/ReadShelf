@@ -7,6 +7,7 @@ import Navbar from './components/Navbar';
 import EditBook from './pages/EditBook';
 import Register from './pages/Register';
 import Login from './pages/Login';
+import About from './pages/About';
 import ProtectedRoute from './components/ProtectedRoute';
 
 
@@ -27,6 +28,7 @@ function App() {
           <Route path='/edit/:id' element={<EditBook />}></Route>
           <Route path='/register' element={<Register />}></Route>
           <Route path='/login' element={<Login />}></Route>
+          <Route path='/about' element={<About />}></Route>
         </Routes>
       </div>
     </Router>

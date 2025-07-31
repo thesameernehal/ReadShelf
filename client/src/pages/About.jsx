@@ -1,4 +1,5 @@
 import React from 'react'
+import booksimage from '../assets/books_image.jpg';
 
 const About = () => {
     return (
@@ -17,23 +18,36 @@ const About = () => {
                 <div className='max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-12 items-center'>
                     {/* Text Content */}
                     <div>
-                        <h2 className='text-3xl font-bold mb-4'>Your Personal Digital Library</h2>
-                        <p className='text-gray-300 mb-6'>ReadShelf helps you stay on top of your reading goals, organize your books by status, and keep your collection tidy—all in one place.
+                        <h2 className='text-3xl md:text-4xl font-bold mb-6 leading-snug'> Your Personal Reading Companion
+                        </h2>
+
+                        <p className='text-gray-400 mb-6'>
+                            Whether you're a casual reader or a passionate bookworm, ReadShelf helps you stay focused, track your journey, and build your dream bookshelf effortlessly.
                         </p>
 
-                        <ul className='space-y-2 text-gray-400'>
-                            <li>Track your progress in real-time</li>
-                            <li>Categorize books as Reading, Completed, or Wishlist</li>
-                            <li>Enjoy distraction-free dark mode</li>
+                        <ul className='space-y-3 text-gray-300'>
+                            <li className='flex items-start gap-2'>Track your progress across every book
+                            </li>
+
+                            <li className='flex items-start gap-2'>Organize as - Reading, Completed, or Wishlist
+                            </li>
+
+                            <li className='flex items-start gap-2'>Enjoy distraction-free dark mode</li>
+
                         </ul>
                     </div>
 
                     {/* Visual or Quote */}
-                    <div className='text-center md:text-right'>
-                        <blockquote className='italic text-gray-400 text-lg'>"A reader lives a thousand lives before he dies. The man who never reads lives only one."
-                            <span className='block mt-2 text-sm text-gray-500'>– George R.R. Martin</span>
+                    <div className='text-center md:text-right bg-gray-900'>
+                        <blockquote className='italic text-gray-400 text-lg md:pl-12 border-l-4 border-indigo-600 bg-gray-950'>"A reader lives a thousand lives before he dies. The man who never reads lives only one."
+                            <span className='block mt-4 text-sm text-gray-500'>– George R.R. Martin</span>
                         </blockquote>
+
+                        <div className='mt-8'>
+                            <img src={booksimage} alt="Books Image" className='w-full rounded-xl shadow-xl object-cover' />
+                        </div>
                     </div>
+
                 </div>
             </section>
 

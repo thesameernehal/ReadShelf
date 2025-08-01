@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import axios from 'axios'
 import { Link } from 'react-router-dom';
 import { FaEdit, FaTrash } from 'react-icons/fa';
+import BookCard from '../components/BookCard';
 
 const Booklist = () => {
 
@@ -70,27 +71,21 @@ const Booklist = () => {
             {books.length === 0 ? (
                 <p className='text-center text-gray-400'>No Books Added Yet</p>
             ) : (
-                <div className='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6'>
+                <div className='grid sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-8'>
                     {filteredBooks.map((book) => (
-                        <div key={book._id} className='bg-gray-800 pb-4 px-4 pt-10 rounded-xl shadow-md relative group min-h-[200px]:'>
-                            <h3 className='font-semibold text-2xl mb-4 break-words'>{book.title}</h3>
-                            <p className='text-gray-400 mb-1 text-xl'>Author : {book.author}</p>
-                            <p className='text-sm text-blue-400'>Status : {book.status}</p>
-                            <div className='absolute top-4 right-4 flex space-x-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300'>
+                        <BookCard
+                            key={book._id}
+                            title={book.title}
+                            author={book.author}
+                            status={book.status}>
 
-                                {/* Edit Button */}
-                                <Link
-                                    to={`/edit/${book._id}`}>
-                                    <FaEdit className='text-yellow-400 hover:text-yellow-300 cursor-pointer'></FaEdit>
-                                </Link>
+                            <Link to={`/edit/${book._id}`}>
+                                <FaEdit className='text-yellow-400 hover:text-yellow-300 cursor-pointer'></FaEdit></Link>
 
-                                <button onClick={() => handleDelete(book._id)}>
-                                    <FaTrash className='text-red-500 hover:text-red-400 cursor-pointer'></FaTrash>
-                                </button>
-
-
-                            </div>
-                        </div>
+                            <button onClick={() => handleDelete(book._id)}>
+                                <FaTrash className='text-red-500 hover:text-red-400 cursor-pointer'></FaTrash>
+                            </button>
+                        </BookCard>
                     ))}
                 </div>
             )

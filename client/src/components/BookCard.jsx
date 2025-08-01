@@ -9,7 +9,7 @@ const StatusColors = {
 const BookCard = ({ title, author, status, children }) => {
     return (
         <div className='bg-gray-800 pb-4 px-4 pt-10 rounded-xl shadow-md relative group min-h-[200px]'>
-            <h3 className='font-semibold text-2xl mb-4 break-words'>{title}</h3>
+            <h3 className='font-semibold text-2xl mb-4 break-words min-h-[64px]'>{title}</h3>
             <p className='text-gray-400 mb-1 text-xl'>Author : {author}</p>
 
             {/* Status */}

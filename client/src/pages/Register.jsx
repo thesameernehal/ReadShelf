@@ -50,7 +50,7 @@ const Register = () => {
                         className='w-full p-3 rounded-md bg-gray-700 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500' />
 
                     <button type='submit'
-                        className='w-full bg-blue-600 hover:bg-blue-700 text-black py-2 px-4 rounded-md font-semibold transition-colors'>Register</button>
+                        className='w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-md font-semibold transition-colors'>Register</button>
 
                     {message && (
                         <p className='text-sm text-center text-blue-400 mt-2'>{message}</p>

@@ -8,8 +8,9 @@ const StatusColors = {
 
 const BookCard = ({ title, author, status, children }) => {
     return (
-        <div className='bg-gray-800 pb-4 px-4 pt-10 rounded-xl shadow-md relative group min-h-[200px]'>
-            <h3 className='font-semibold text-2xl mb-4 break-words min-h-[64px]'>{title}</h3>
+        <div className='bg-gray-800 pb-4 px-4 pt-10 rounded-xl shadow-md text-white space-y-1 relative group min-h-[200px] transition-transform transform hover:scale-105 hover:shadow-[0_0_10px_#3b82f6]
+ duration-300 hover:border-2 hover:border-blue-500 '>
+            <h3 className='font-semibold text-2xl mb-4 break-words text-blue-400 min-h-[64px]'>{title}</h3>
             <p className='text-gray-400 mb-1 text-xl'>Author : {author}</p>
 
             {/* Status */}

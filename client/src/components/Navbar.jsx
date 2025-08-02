@@ -19,7 +19,7 @@ const Navbar = () => {
                     <Link to="/">ReadShelf</Link>
                 </div>
 
-                <ul className='flex space-x-6 items-center text-sm font-medium'>
+                <ul className='flex space-x-6 items-center text-lg font-medium'>
                     <li><Link to="/" className='hover:text-yellow-400 transition'>Home</Link></li>
 
                     <li><Link to="/about" className='hover:text-yellow-400 transition'>About</Link></li>

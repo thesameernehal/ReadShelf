@@ -46,7 +46,7 @@ const Login = () => {
 
                     <input type="password" placeholder='Password' value={password} onChange={(e) => setPassword(e.target.value)} className='w-full px-4 py-2 bg-gray-700 rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-yellow-400 required'/>
 
-                    <button type='submit' className='w-full py-2 bg-yellow-500 hover:bg-yellow-600 text-black font-semibold rounded-md transition'>Login</button>
+                    <button type='submit' className='w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-md transition'>Login</button>
 
                     {/* Message */}
                     {message && (

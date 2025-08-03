@@ -55,18 +55,19 @@ const Booklist = () => {
             <div className='flex flex-col sm:flex-row gap-4 mb-6 items-center justify-center'>
                 {/* Filter option */}
                 <label className='mr-2 font-semibold'>Filter by Status : </label>
+
                 <select value={filter}
                     onChange={(e) => setfilter(e.target.value)}
-                    className='w-full sm:w-40 px-4 py-2 rounded-md bg-gray-700 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 mr-2'
+                    className='w-full sm:w-48 px-4 py-2 rounded-lg bg-gray-800 text-white border border-gray-600 shadow-md hover:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200'
                 >
-                    <option value="All">All</option>
-                    <option value="Reading">Reading</option>
-                    <option value="Completed">Completed</option>
-                    <option value="Wishlist">Wishlist</option>
+                    <option value="All">📚 All</option>
+                    <option value="Reading">📖 Reading</option>
+                    <option value="Completed">✅ Completed</option>
+                    <option value="Wishlist">📝 Wishlist</option>
                 </select>
 
                 {/* Search Functionality  */}
-                <input type="text" value={searchterm} placeholder='Search Books' onChange={(e) => setSearchterm(e.target.value)} className='w-full sm:w-64 px-4 py-2 rounded-md bg-gray-700 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500' />
+                <input type="text" value={searchterm} placeholder='Search Books' onChange={(e) => setSearchterm(e.target.value)} className='w-full sm:w-48 px-4 py-2 rounded-lg bg-gray-800 text-white border border-gray-600 shadow-md hover:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 ' />
             </div>
             {books.length === 0 ? (
                 <p className='text-center text-gray-400'>No Books Added Yet</p>
@@ -79,12 +80,15 @@ const Booklist = () => {
                             author={book.author}
                             status={book.status}>
 
-                            <Link to={`/edit/${book._id}`}>
-                                <FaEdit className='text-yellow-400 hover:text-yellow-300 cursor-pointer'></FaEdit></Link>
+                            <div className='flex gap-3'>
 
-                            <button onClick={() => handleDelete(book._id)}>
-                                <FaTrash className='text-red-500 hover:text-red-400 cursor-pointer'></FaTrash>
-                            </button>
+                                <Link to={`/edit/${book._id}`}>
+                                    <FaEdit className='text-yellow-400 hover:text-yellow-300 cursor-pointer'></FaEdit></Link>
+
+                                <button onClick={() => handleDelete(book._id)}>
+                                    <FaTrash className='text-red-500 hover:text-red-400 cursor-pointer'></FaTrash>
+                                </button>
+                            </div>
                         </BookCard>
                     ))}
                 </div>

@@ -12,6 +12,8 @@ const Booklist = () => {
     const [error, seterror] = useState(null);
     const [filter, setfilter] = useState("All")
     const [searchterm, setSearchterm] = useState("")
+    const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+
 
 
     useEffect(() => {
@@ -36,7 +38,11 @@ const Booklist = () => {
 
     const handleDelete = async (id) => {
         try {
-            await axios.delete(`http://localhost:5000/api/books/${id}`)
+            await axios.delete(`http://localhost:5000/api/books/${id}`);
+            setbooks(prevBooks => prevBooks.filter(book => book._id != id)); 
+
+            // Updating the UI 
+            setConfirmDeleteId(null); 
         }
         catch (err) {
             console.log("Failed to delete book :" + err);
@@ -83,11 +89,27 @@ const Booklist = () => {
                             <div className='flex gap-3'>
 
                                 <Link to={`/edit/${book._id}`}>
-                                    <FaEdit className='text-yellow-400 hover:text-yellow-300 cursor-pointer'></FaEdit></Link>
+                                    <FaEdit className='text-yellow-400 hover:text-yellow-300 cursor-pointer mt-1'></FaEdit></Link>
 
-                                <button onClick={() => handleDelete(book._id)}>
-                                    <FaTrash className='text-red-500 hover:text-red-400 cursor-pointer'></FaTrash>
-                                </button>
+                                <div className='relative'>
+                                    <button onClick={() => setConfirmDeleteId(book._id)}>
+                                        <FaTrash className='text-red-500 hover:text-red-400 cursor-pointer '></FaTrash>
+                                    </button>
+
+                                    {confirmDeleteId === book._id && (
+                                        <div className='absolute top-8 right-0 bg-gray-800 p-3 rounded shadow-md z-10 text-sm w-40 transition-all duration-200'>
+                                            <p className='mb-2 text-white'>Are you sure?</p>
+                                            <div className='flex justify-end gap-2'>
+                                                <button className='px-2 py-1 text-white bg-red-600 hover:bg-red-500 rounded' onClick={() => handleDelete(book._id)}>
+                                                    Delete
+                                                </button>
+                                                <button className='px-2 py-1 text-white bg-gray-600 hover:bg-gray-500 rounded' onClick={() => setConfirmDeleteId(null)}>
+                                                    Cancel
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </BookCard>
                     ))}

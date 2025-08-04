@@ -13,7 +13,7 @@ const Navbar = () => {
     }
 
     return (
-        <nav className='bg-gray-800 text-white shadow-md'>
+        <nav className='bg-gray-800 text-white shadow-md rounded-md w-full'>
             <div className='max-w-7xl mx-auto px-4 py-3 flex justify-between items-center'>
                 <div className='text-xl font-semibold tracking-wide'>
                     <Link to="/">ReadShelf</Link>

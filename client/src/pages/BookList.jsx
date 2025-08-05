@@ -39,10 +39,10 @@ const Booklist = () => {
     const handleDelete = async (id) => {
         try {
             await axios.delete(`http://localhost:5000/api/books/${id}`);
-            setbooks(prevBooks => prevBooks.filter(book => book._id != id)); 
+            setbooks(prevBooks => prevBooks.filter(book => book._id != id));
 
             // Updating the UI 
-            setConfirmDeleteId(null); 
+            setConfirmDeleteId(null);
         }
         catch (err) {
             console.log("Failed to delete book :" + err);
@@ -76,7 +76,14 @@ const Booklist = () => {
                 <input type="text" value={searchterm} placeholder='Search Books' onChange={(e) => setSearchterm(e.target.value)} className='w-full sm:w-48 px-4 py-2 rounded-lg bg-gray-800 text-white border border-gray-600 shadow-md hover:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 ' />
             </div>
             {books.length === 0 ? (
-                <p className='text-center text-gray-400'>No Books Added Yet</p>
+                <div className='flex flex-col items-center justify-center text-center mt-20 text-gray-400'>
+                    <img src="https://cdn-icons-png.flaticon.com/512/4076/4076549.png" alt="Empty shelf" className='w-40 h-40 mb-6 opacity-70' />
+                    <h2 className='text-2xl font-semibold mb-2 text-white'>No Books Yet</h2>
+                    <p className='mb-4'>Start your reading journey by adding your first book.</p>
+
+                    <Link to="/add" className='bg-blue-600 hover:bg-blue-700 transition text-white rounded-xl px-5 py-2'>
+                        Add Book</Link>
+                </div>
             ) : (
                 <div className='grid sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-8'>
                     {filteredBooks.map((book) => (

@@ -11,12 +11,17 @@ const Addbook = () => {
         e.preventDefault(); // for preventing page reload
 
         try {
-            const response = await axios.post("http://localhost:5000/api/books", {
+            const token = localStorage.getItem('token')
+            await axios.post("http://localhost:5000/api/books", {
                 title,
                 author,
-                status,
-                userId: 'tempUser'
-            });
+                status
+            },
+                {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    }
+                });
 
             alert("Book added successfully !!!");
 

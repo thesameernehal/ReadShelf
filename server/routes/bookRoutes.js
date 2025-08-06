@@ -2,11 +2,15 @@
 const express = require('express');
 const router = express.Router();
 const Book = require('../models/Book.js');
+const verifyToken = require('./middleWare/verifyToken');
+
+// Secure all book routes
+router.use(verifyToken);
 
 // Route to get all books 
 router.get('/', async (req, res) => {
     try {
-        const books = await Book.find(); // later: filter by userId
+        const books = await Book.find({ userId: req.user.userId }); // this shows user specific books (not a global list for all users as earlier )
         res.json(books);
     } catch (err) {
         res.status(500).json({ message: err.message });
@@ -15,7 +19,8 @@ router.get('/', async (req, res) => {
 
 // Route to add a new book 
 router.post('/', async (req, res) => {
-    const { title, author, status, userId } = req.body;
+    const { title, author, status } = req.body;
+    const userId = req.user.userId;
 
     const newBook = new Book({
         title,
@@ -33,20 +38,28 @@ router.post('/', async (req, res) => {
 
 })
 
-// Route to get a book by ID
+// Route to get a book by ID (only if it belongs to the user)
 router.get("/:id", async (req, res) => {
     try {
         const book = await Book.findById(req.params.id);
-        if (!book)
-            return res.status(404).json({ message: 'Book Not Found' });
+        if (!book || book.userId != req.user.userId) {
+            return res.status(404).json({ message: 'Book Not Found or Unauthorized' });
+        }
         res.json(book);
     } catch (err) {
         res.status(500).json({ message: err.message })
     }
 })
 
+// Route to update a book by ID (only if it belongs to the user)
 router.put('/:id', async (req, res) => {
     try {
+
+        const book = await Book.findById(req.params.id);
+        if (!book || book.userId !== req.user.userId) {
+            return res.status(404).json({ message: 'Book Not Found or Unauthorized' });
+        }
+
         const updatedBook = await Book.findByIdAndUpdate(
             req.params.id,
             req.body, {
@@ -60,11 +73,17 @@ router.put('/:id', async (req, res) => {
 });
 
 
-// Router to delete a book
 
+// Route to delete a book by ID (only if it belongs to the user)
 router.delete('/:id', async (req, res) => {
     try {
-        await Book.findByIdAndDelete(req.params.id);
+
+        const book = await Book.findById(req.params.id);
+        if (!book || book.userId !== req.user.userId) {
+            return res.status(404).json({ message: 'Book Not Found or Unauthorized' });
+        }
+
+        await book.remove();
         res.json({
             message: 'Book deleted successfully'
         });

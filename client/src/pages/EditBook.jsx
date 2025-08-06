@@ -18,7 +18,13 @@ const EditBook = () => {
   useEffect(() => {
     const fetchbook = async () => {
       try {
-        const res = await axios.get(`http://localhost:5000/api/books/${id}`)
+        const token = localStorage.getItem('token');
+        const res = await axios.get(`http://localhost:5000/api/books/${id}`, {
+          headers: {
+            Authorization: `Bearer ${token}`
+          },
+        });
+
         setTitle(res.data.title);
         setAuthor(res.data.author);
         setStatus(res.data.status);
@@ -39,10 +45,15 @@ const EditBook = () => {
     e.preventDefault();
 
     try {
+      const token = localStorage.getItem('token');
       await axios.put(`http://localhost:5000/api/books/${id}`, {
         title,
         author,
         status
+      }, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        },
       });
       alert('Book updated successfully !!!')
       navigate('/books')

@@ -19,8 +19,15 @@ const Booklist = () => {
     useEffect(() => {
         const fetchBooks = async () => {
             try {
-                const res = await axios.get('http://localhost:5000/api/books');
+                const token = localStorage.getItem('token'); // Or wherever you stored the token
+                const res = await axios.get('http://localhost:5000/api/books', {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                });
                 setbooks(res.data); // change state of setbooks as res.data means data received by res or through axios from api/books
+
+
             } catch (err) {
                 console.log(err);
                 seterror('Failed to fetch books');
@@ -38,7 +45,12 @@ const Booklist = () => {
 
     const handleDelete = async (id) => {
         try {
-            await axios.delete(`http://localhost:5000/api/books/${id}`);
+            const token = localStorage.getItem('token');
+            await axios.delete(`http://localhost:5000/api/books/${id}`, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
             setbooks(prevBooks => prevBooks.filter(book => book._id != id));
 
             // Updating the UI 

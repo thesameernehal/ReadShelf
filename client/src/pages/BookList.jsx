@@ -14,20 +14,23 @@ const Booklist = () => {
     const [searchterm, setSearchterm] = useState("")
     const [confirmDeleteId, setConfirmDeleteId] = useState(null);
 
-
-
+    // edited fetchBooks
     useEffect(() => {
         const fetchBooks = async () => {
+            const token = localStorage.getItem('token'); // Or wherever you stored the token
+            console.log("Token", token);
+
+            const config = {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            };
+            console.log("Axios config : ", config);
+
             try {
-                const token = localStorage.getItem('token'); // Or wherever you stored the token
-                const res = await axios.get('http://localhost:5000/api/books', {
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                    },
-                });
+
+                const res = await axios.get('http://localhost:5000/api/books', config);
                 setbooks(res.data); // change state of setbooks as res.data means data received by res or through axios from api/books
-
-
             } catch (err) {
                 console.log(err);
                 seterror('Failed to fetch books');
@@ -38,7 +41,6 @@ const Booklist = () => {
 
         fetchBooks();
     }, []);
-    // The empty array [] means: Run only once when the component mounts (loads)
 
     if (loading) return <p>Loading...</p>;
     if (error) return <p>{error}</p>;

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import axios from 'axios'
+import { toast } from 'react-toastify';
 
 
 const EditBook = () => {
@@ -28,9 +29,11 @@ const EditBook = () => {
         setTitle(res.data.title);
         setAuthor(res.data.author);
         setStatus(res.data.status);
+
       } catch (err) {
         console.log(err);
         setError('Failed to Edit Book');
+
       } finally {
         setLoading(false);
       }
@@ -55,11 +58,11 @@ const EditBook = () => {
           Authorization: `Bearer ${token}`
         },
       });
-      alert('Book updated successfully !!!')
+      toast.success('Book Edited Successfully')
       navigate('/books')
     } catch (err) {
       console.log('Update Failed : ', err);
-      alert('Failed to update Book')
+      toast.error('Unable to edit book')
     }
   };
 

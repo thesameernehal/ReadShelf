@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import axios from 'axios';
+import { toast } from 'react-toastify';
 
 const Addbook = () => {
     // Here use state is used to track form fields
@@ -23,7 +24,8 @@ const Addbook = () => {
                     }
                 });
 
-            alert("Book added successfully !!!");
+            // alert("Book added successfully !!!");
+            toast.success('Book added successfully')
 
             // we will then clear form
             settitle("");
@@ -31,7 +33,8 @@ const Addbook = () => {
             setstatus("Reading");
         } catch (error) {
             console.log(error);
-            alert("Failed to add book")
+            // alert("Failed to add book")
+            toast.error('Failed to add book')
         }
     }
     return (

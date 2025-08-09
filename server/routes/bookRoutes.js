@@ -56,7 +56,7 @@ router.put('/:id', async (req, res) => {
     try {
 
         const book = await Book.findById(req.params.id);
-        if (!book || book.userId !== req.user.userId) {
+        if (!book || book.userId.toString() !== req.user.userId) {
             return res.status(404).json({ message: 'Book Not Found or Unauthorized' });
         }
 
@@ -79,16 +79,22 @@ router.delete('/:id', async (req, res) => {
     try {
 
         const book = await Book.findById(req.params.id);
-        if (!book || book.userId !== req.user.userId) {
-            return res.status(404).json({ message: 'Book Not Found or Unauthorized' });
+
+        if (!book) {
+            return res.status(404).json({ message: 'Book not found' });
         }
 
-        await book.remove();
+        if (book.userId.toString() !== req.user.userId) {
+            return res.status(403).json({ message: 'Unauthorized' });
+        }
+
+        await book.deleteOne();
         res.json({
             message: 'Book deleted successfully'
         });
     } catch (err) {
-        res.status(400).json({ message: 'Unable to delete Book' })
+        console.error('Delete error', err)
+        res.status(500).json({ message: 'Unable to delete Book' })
     }
 })
 

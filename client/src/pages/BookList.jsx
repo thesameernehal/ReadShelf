@@ -57,11 +57,13 @@ const Booklist = () => {
             });
             setbooks(prevBooks => prevBooks.filter(book => book._id != id));
 
+            toast.success("Book deleted successfully")
             // Updating the UI 
             setConfirmDeleteId(null);
         }
         catch (err) {
             console.log("Failed to delete book :" + err);
+            toast.err("Unable to delete book")
         }
     };
 

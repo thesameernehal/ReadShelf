@@ -3,35 +3,72 @@ const express = require('express');
 const router = express.Router();
 const Book = require('../models/Book.js');
 const verifyToken = require('./middleWare/verifyToken');
+const axios = require('axios');
+
+async function fetchCoverURL({ title, author }) {
+
+    try {
+        const q = [
+            title ? `intitle:${title}` : "",
+            author ? `inauthor:${author}` : ""
+        ]
+            .filter(Boolean)
+            .join('+');
+
+        const params = {
+            q,
+            maxResults: 1,
+            orderBy: 'relevance',
+            fields: 'items(volumeInfo/imageLinks/thumbnail)'
+        };
+
+        // use an API key 
+        if (process.env.GOOGLE_BOOKS_API_KEY) {
+            params.key = process.env.GOOGLE_BOOKS_API_KEY;
+        }
+
+        const { data } = await axios.get('https://www.googleapis.com/books/v1/volumes', {
+            params,
+            timeout: 4000,
+        });
+        const thumb = data?.items?.[0]?.volumeInfo?.imageLinks?.thumbnail;
+        return thumb ? thumb.replace(/^http:/, 'https:') : '';
+    } catch (e) {
+        console.error('fetchCoverUrl error:', e.message);
+        return '';
+    }
+}
+
+
 
 // Secure all book routes
 router.use(verifyToken);
 
 // GET Books with Pagination
 router.get("/", async (req, res) => {
-  try {
-    const page = parseInt(req.query.page) || 1;   // default 1
-    const limit = parseInt(req.query.limit) || 10; // default 10
-    const skip = (page - 1) * limit;
+    try {
+        const page = parseInt(req.query.page) || 1;   // default 1
+        const limit = parseInt(req.query.limit) || 10; // default 10
+        const skip = (page - 1) * limit;
 
-    const filter = { userId: req.user.userId };
+        const filter = { userId: req.user.userId };
 
-    const [books, totalBooks] = await Promise.all([
-      // use _id for safe, time-based sort (works even if timestamps aren't enabled)
-      Book.find(filter).sort({ _id: -1 }).skip(skip).limit(limit),
-      Book.countDocuments(filter),
-    ]);
+        const [books, totalBooks] = await Promise.all([
+            // use _id for safe, time-based sort (works even if timestamps aren't enabled)
+            Book.find(filter).sort({ _id: -1 }).skip(skip).limit(limit),
+            Book.countDocuments(filter),
+        ]);
 
-    res.json({
-      total: totalBooks,
-      page,
-      pages: Math.ceil(totalBooks / limit),
-      books,
-    });
-  } catch (error) {
-    console.error("Error fetching books:", error);
-    res.status(500).json({ message: "Server Error" });
-  }
+        res.json({
+            total: totalBooks,
+            page,
+            pages: Math.ceil(totalBooks / limit),
+            books,
+        });
+    } catch (error) {
+        console.error("Error fetching books:", error);
+        res.status(500).json({ message: "Server Error" });
+    }
 });
 
 
@@ -39,6 +76,12 @@ router.get("/", async (req, res) => {
 router.post('/', async (req, res) => {
     const { title, author, status, coverUrl } = req.body;
     const userId = req.user.userId;
+
+    let finalCoverUrl = coverUrl || "";
+
+    if (!finalCoverUrl && title) {
+        finalCoverUrl = await fetchCoverURL({ title, author });
+    }
 
     const newBook = new Book({
         title,

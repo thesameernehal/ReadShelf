@@ -7,26 +7,45 @@ const verifyToken = require('./middleWare/verifyToken');
 // Secure all book routes
 router.use(verifyToken);
 
-// Route to get all books 
-router.get('/', async (req, res) => {
-    try {
-        const books = await Book.find({ userId: req.user.userId }); // this shows user specific books (not a global list for all users as earlier )
-        res.json(books);
-    } catch (err) {
-        res.status(500).json({ message: err.message });
-    }
+// GET Books with Pagination
+router.get("/", async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;   // default 1
+    const limit = parseInt(req.query.limit) || 10; // default 10
+    const skip = (page - 1) * limit;
+
+    const filter = { userId: req.user.userId };
+
+    const [books, totalBooks] = await Promise.all([
+      // use _id for safe, time-based sort (works even if timestamps aren't enabled)
+      Book.find(filter).sort({ _id: -1 }).skip(skip).limit(limit),
+      Book.countDocuments(filter),
+    ]);
+
+    res.json({
+      total: totalBooks,
+      page,
+      pages: Math.ceil(totalBooks / limit),
+      books,
+    });
+  } catch (error) {
+    console.error("Error fetching books:", error);
+    res.status(500).json({ message: "Server Error" });
+  }
 });
+
 
 // Route to add a new book 
 router.post('/', async (req, res) => {
-    const { title, author, status } = req.body;
+    const { title, author, status, coverUrl } = req.body;
     const userId = req.user.userId;
 
     const newBook = new Book({
         title,
         author,
         status,
-        userId
+        userId,
+        coverUrl: coverUrl || ''
     });
 
     try {

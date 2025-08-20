@@ -40,29 +40,34 @@ const AddBook = ({ onBookAdded }) => {
         e.preventDefault();
 
         try {
-            const token = localStorage.getItem("user");
-            await axios.post(
+            const token = localStorage.getItem("token");
+
+            const res = await axios.post(
                 "http://localhost:5000/api/books",
-                { title, author, status, coverUrl },
+                { title, author, status },
                 { headers: { Authorization: `Bearer ${token}` } }
             );
 
-            toast.success("Book added successfully!");
-            onBookAdded();
-            setTitle("");
-            setAuthor("");
-            setStatus("Reading");
-            setCoverUrl("");
-        } catch (err) {
-            console.error(err);
-            toast.error("Error adding book.");
+            if (res.status === 201) {
+                toast.success('Book added successfully');
+                setTitle("");
+                setAuthor("");
+                setStatus("Reading");
+            } else {
+                toast.error('Failed to add book');
+            }
+
+        } catch (error) {
+            console.log(error);
+            toast.error('Failed to add book');
         }
     };
+
 
     return (
         <form
             onSubmit={handleSubmit}
-            className="bg-gray-800 p-6 rounded-2xl shadow-md space-y-4"
+            className="bg-gray-800 p-6 rounded-2xl shadow-md space-y-4 mt-10"
         >
             <input
                 type="text"

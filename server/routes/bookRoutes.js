@@ -1,32 +1,16 @@
-
 const express = require('express');
 const router = express.Router();
 const Book = require('../models/Book.js');
 const verifyToken = require('./middleWare/verifyToken');
 const axios = require('axios');
 
-async function fetchOpenLibraryCover(title) {
-    try {
-        const { data } = await axios.get(`https://openlibrary.org/search.json?title=${encodeURIComponent(title)}`);
-
-        if (data.docs && data.docs.length > 0 && data.docs[0].cover_i) {
-            return `https://covers.openlibrary.org/b/id/${data.docs[0].cover_i}-L.jpg`;
-        }
-        return "";
-    } catch (err) {
-        console.error("OpenLibrary fetch error :", err.message);
-        return "";
-    }
-}
-
+// Fetch book cover from Google Books API
 async function fetchGoogleBooksCover({ title, author }) {
     try {
         const q = [
             title ? `intitle:${title}` : "",
             author ? `inauthor:${author}` : ""
-        ]
-            .filter(Boolean)
-            .join('+');
+        ].filter(Boolean).join('+');
 
         const params = {
             q,
@@ -52,22 +36,20 @@ async function fetchGoogleBooksCover({ title, author }) {
     }
 }
 
-// Secure all book routes
+// Secure all routes
 router.use(verifyToken);
 
-// GET Books with Pagination
+// GET books with pagination
 router.get("/", async (req, res) => {
     try {
-        const page = parseInt(req.query.page) || 1;   // default 1
-        const limit = parseInt(req.query.limit) || 10; // default 10
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
         const skip = (page - 1) * limit;
-
         const filter = { userId: req.user.userId };
 
         const [books, totalBooks] = await Promise.all([
-            // use _id for safe, time-based sort (works even if timestamps aren't enabled)
             Book.find(filter).sort({ _id: -1 }).skip(skip).limit(limit),
-            Book.countDocuments(filter),
+            Book.countDocuments(filter)
         ]);
 
         res.json({
@@ -76,22 +58,18 @@ router.get("/", async (req, res) => {
             pages: Math.ceil(totalBooks / limit),
             books,
         });
-    } catch (error) {
-        console.error("Error fetching books:", error);
+    } catch (err) {
+        console.error("Error fetching books:", err);
         res.status(500).json({ message: "Server Error" });
     }
 });
 
-// Route to add a new book 
+// POST add a new book
 router.post('/', async (req, res) => {
     const { title, author, status } = req.body;
     const userId = req.user.userId;
 
-    let coverUrl = await fetchOpenLibraryCover(title);
-
-    if (!coverUrl && title) {
-        coverUrl = await fetchGoogleBooksCover({ title, author });
-    }
+    let coverUrl = await fetchGoogleBooksCover({ title, author });
 
     try {
         const newBook = new Book({
@@ -105,12 +83,12 @@ router.post('/', async (req, res) => {
         const savedBook = await newBook.save();
         res.status(201).json(savedBook);
     } catch (err) {
-        res.status(400).json({ message: err.message })
+        console.error(err);
+        res.status(400).json({ message: err.message });
     }
+});
 
-})
-
-// Route to get a book by ID (only if it belongs to the user)
+// GET single book by ID
 router.get("/:id", async (req, res) => {
     try {
         const book = await Book.findById(req.params.id);
@@ -119,76 +97,51 @@ router.get("/:id", async (req, res) => {
         }
         res.json(book);
     } catch (err) {
-        res.status(500).json({ message: err.message })
+        res.status(500).json({ message: err.message });
     }
-})
+});
 
-// Route to update a book by ID (only if it belongs to the user)
+// PUT update a book by ID
 router.put('/:id', async (req, res) => {
     try {
-
         const book = await Book.findById(req.params.id);
         if (!book || book.userId.toString() !== req.user.userId) {
             return res.status(404).json({ message: 'Book Not Found or Unauthorized' });
         }
 
         const updates = { ...req.body };
+        const titleChanged = updates.title && updates.title !== book.title;
+        const authorChanged = updates.author && updates.author !== book.author;
+        const noCoverProvided = !('coverUrl' in updates) || !updates.coverUrl;
 
-        const titleChanged = updates.title && updates.title != book.title;
-
-        const authorChanged = updates.author && updates.author != book.author;
-
-        const noCoverProvided = !(`coverUrl` in updates) || !updates.coverUrl;
-
-       if ((titleChanged || authorChanged) && noCoverProvided) {
-            let coverUrl = await fetchOpenLibraryCover(updates.title || book.title);
-            if (!coverUrl) {
-                coverUrl = await fetchGoogleBooksCover({
-                    title: updates.title || book.title,
-                    author: updates.author || book.author
-                });
-            }
-            if (coverUrl) {
-                updates.coverUrl = coverUrl;
-            }
+        if ((titleChanged || authorChanged) && noCoverProvided) {
+            let coverUrl = await fetchGoogleBooksCover({
+                title: updates.title || book.title,
+                author: updates.author || book.author
+            });
+            if (coverUrl) updates.coverUrl = coverUrl;
         }
 
-        const updatedBook = await Book.findByIdAndUpdate(
-            req.params.id,
-            updates, {
-            new: true
-        }
-        );
+        const updatedBook = await Book.findByIdAndUpdate(req.params.id, updates, { new: true });
         res.json(updatedBook);
     } catch (err) {
-        res.status(400).json({ message: err.message })
+        res.status(400).json({ message: err.message });
     }
 });
 
-
-
-// Route to delete a book by ID (only if it belongs to the user)
+// DELETE book by ID
 router.delete('/:id', async (req, res) => {
     try {
-
         const book = await Book.findById(req.params.id);
-
-        if (!book) {
-            return res.status(404).json({ message: 'Book not found' });
-        }
-
-        if (book.userId.toString() !== req.user.userId) {
-            return res.status(403).json({ message: 'Unauthorized' });
-        }
+        if (!book) return res.status(404).json({ message: 'Book not found' });
+        if (book.userId.toString() !== req.user.userId) return res.status(403).json({ message: 'Unauthorized' });
 
         await book.deleteOne();
-        res.json({
-            message: 'Book deleted successfully'
-        });
+        res.json({ message: 'Book deleted successfully' });
     } catch (err) {
-        console.error('Delete error', err)
-        res.status(500).json({ message: 'Unable to delete Book' })
+        console.error('Delete error', err);
+        res.status(500).json({ message: 'Unable to delete Book' });
     }
-})
+});
 
-module.exports = router; 
+module.exports = router;

@@ -18,23 +18,24 @@ const Booklist = () => {
   useEffect(() => {
     const fetchBooks = async () => {
       setLoading(true);
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem("token");
+
       try {
-        const res = await axios.get(`http://localhost:5000/api/books`, {
+        const res = await axios.get("http://localhost:5000/api/books", {
           headers: {
             Authorization: `Bearer ${token}`,
           },
           params: {
             page,
-            limit: 6 // adjust how many books per page
-          }
+            limit: 6, // adjust how many books per page
+          },
         });
 
         setBooks(res.data.books);
         setTotalPages(res.data.pages || 1);
       } catch (err) {
         console.error(err);
-        setError('Failed to fetch books');
+        setError("Failed to fetch books");
       } finally {
         setLoading(false);
       }
@@ -42,6 +43,7 @@ const Booklist = () => {
 
     fetchBooks();
   }, [page]);
+
 
   if (loading) return <p>Loading...</p>;
   if (error) return <p>{error}</p>;
@@ -112,6 +114,7 @@ const Booklist = () => {
               title={book.title}
               author={book.author}
               status={book.status}
+              coverUrl={book.coverUrl}
             >
               <div className='flex gap-3'>
                 <Link to={`/edit/${book._id}`}>

@@ -5,8 +5,21 @@ const Book = require('../models/Book.js');
 const verifyToken = require('./middleWare/verifyToken');
 const axios = require('axios');
 
-async function fetchCoverURL({ title, author }) {
+async function fetchOpenLibraryCover(title) {
+    try {
+        const { data } = await axios.get(`https://openlibrary.org/search.json?title=${encodeURIComponent(title)}`);
 
+        if (data.docs && data.docs.length > 0 && data.docs[0].cover_i) {
+            return `https://covers.openlibrary.org/b/id/${data.docs[0].cover_i}-L.jpg`;
+        }
+        return "";
+    } catch (err) {
+        console.error("OpenLibrary fetch error :", err.message);
+        return "";
+    }
+}
+
+async function fetchGoogleBooksCover({ title, author }) {
     try {
         const q = [
             title ? `intitle:${title}` : "",
@@ -22,7 +35,6 @@ async function fetchCoverURL({ title, author }) {
             fields: 'items(volumeInfo/imageLinks/thumbnail)'
         };
 
-        // use an API key 
         if (process.env.GOOGLE_BOOKS_API_KEY) {
             params.key = process.env.GOOGLE_BOOKS_API_KEY;
         }
@@ -31,15 +43,14 @@ async function fetchCoverURL({ title, author }) {
             params,
             timeout: 4000,
         });
+
         const thumb = data?.items?.[0]?.volumeInfo?.imageLinks?.thumbnail;
         return thumb ? thumb.replace(/^http:/, 'https:') : '';
     } catch (e) {
-        console.error('fetchCoverUrl error:', e.message);
-        return '';
+        console.error("GoogleBooks fetch error:", e.message);
+        return "";
     }
 }
-
-
 
 // Secure all book routes
 router.use(verifyToken);
@@ -71,27 +82,26 @@ router.get("/", async (req, res) => {
     }
 });
 
-
 // Route to add a new book 
 router.post('/', async (req, res) => {
-    const { title, author, status, coverUrl } = req.body;
+    const { title, author, status } = req.body;
     const userId = req.user.userId;
 
-    let finalCoverUrl = coverUrl || "";
+    let coverUrl = await fetchOpenLibraryCover(title);
 
-    if (!finalCoverUrl && title) {
-        finalCoverUrl = await fetchCoverURL({ title, author });
+    if (!coverUrl && title) {
+        coverUrl = await fetchGoogleBooksCover({ title, author });
     }
 
-    const newBook = new Book({
-        title,
-        author,
-        status,
-        userId,
-        coverUrl: coverUrl || ''
-    });
-
     try {
+        const newBook = new Book({
+            title,
+            author,
+            status,
+            userId,
+            coverUrl
+        });
+
         const savedBook = await newBook.save();
         res.status(201).json(savedBook);
     } catch (err) {
@@ -122,9 +132,30 @@ router.put('/:id', async (req, res) => {
             return res.status(404).json({ message: 'Book Not Found or Unauthorized' });
         }
 
+        const updates = { ...req.body };
+
+        const titleChanged = updates.title && updates.title != book.title;
+
+        const authorChanged = updates.author && updates.author != book.author;
+
+        const noCoverProvided = !(`coverUrl` in updates) || !updates.coverUrl;
+
+       if ((titleChanged || authorChanged) && noCoverProvided) {
+            let coverUrl = await fetchOpenLibraryCover(updates.title || book.title);
+            if (!coverUrl) {
+                coverUrl = await fetchGoogleBooksCover({
+                    title: updates.title || book.title,
+                    author: updates.author || book.author
+                });
+            }
+            if (coverUrl) {
+                updates.coverUrl = coverUrl;
+            }
+        }
+
         const updatedBook = await Book.findByIdAndUpdate(
             req.params.id,
-            req.body, {
+            updates, {
             new: true
         }
         );

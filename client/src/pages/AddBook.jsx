@@ -49,73 +49,83 @@ const AddBook = ({ onBookAdded }) => {
             );
 
             if (res.status === 201) {
-                toast.success('Book added successfully');
+                toast.success("Book added successfully");
                 setTitle("");
                 setAuthor("");
                 setStatus("Reading");
+                setCoverUrl("");
             } else {
-                toast.error('Failed to add book');
+                toast.error("Failed to add book");
             }
-
         } catch (error) {
             console.log(error);
-            toast.error('Failed to add book');
+            toast.error("Failed to add book");
         }
     };
 
-
     return (
-        <form
-            onSubmit={handleSubmit}
-            className="bg-gray-800 p-6 rounded-2xl shadow-md space-y-4 mt-10"
-        >
-            <input
-                type="text"
-                placeholder="Book Title"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                onBlur={() => fetchBookDetails(title)} // 🔹 Fetch on blur
-                className="w-full p-2 rounded bg-gray-700 text-white"
-                required
-            />
-
-            <input
-                type="text"
-                placeholder="Author"
-                value={author}
-                onChange={(e) => setAuthor(e.target.value)}
-                className="w-full p-2 rounded bg-gray-700 text-white"
-                required
-            />
-
-            <select
-                value={status}
-                onChange={(e) => setStatus(e.target.value)}
-                className="w-full p-2 rounded bg-gray-700 text-white"
+        <div className="max-w-md mx-auto mt-10">
+            <form
+                onSubmit={handleSubmit}
+                className="bg-gray-800 p-6 rounded-2xl shadow-md space-y-4"
             >
-                <option value="Reading">Reading</option>
-                <option value="Wishlist">Wishlist</option>
-                <option value="Completed">Completed</option>
-            </select>
-
-            {/* Preview cover if available */}
-            {coverUrl && (
-                <div className="flex justify-center">
-                    <img
-                        src={coverUrl}
-                        alt="Book cover"
-                        className="h-32 rounded shadow-md"
+                <div>
+                    <label className="block text-sm font-medium mb-1">Book Title</label>
+                    <input
+                        type="text"
+                        placeholder="Enter book title"
+                        value={title}
+                        onChange={(e) => setTitle(e.target.value)}
+                        onBlur={() => fetchBookDetails(title)} // 🔹 Fetch on blur
+                        className="w-full px-4 py-2 rounded-lg bg-gray-700 text-white border border-gray-600 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                        required
                     />
                 </div>
-            )}
 
-            <button
-                type="submit"
-                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 rounded-lg"
-            >
-                Add Book
-            </button>
-        </form>
+                <div>
+                    <label className="block text-sm font-medium mb-1">Author</label>
+                    <input
+                        type="text"
+                        placeholder="Enter author"
+                        value={author}
+                        onChange={(e) => setAuthor(e.target.value)}
+                        className="w-full px-4 py-2 rounded-lg bg-gray-700 text-white border border-gray-600 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                        required
+                    />
+                </div>
+
+                <div>
+                    <label className="block text-sm font-medium mb-1">Status</label>
+                    <select
+                        value={status}
+                        onChange={(e) => setStatus(e.target.value)}
+                        className="w-full px-4 py-2 rounded-lg bg-gray-700 text-white border border-gray-600 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                    >
+                        <option value="Reading">📖 Reading</option>
+                        <option value="Wishlist">📝 Wishlist</option>
+                        <option value="Completed">✅ Completed</option>
+                    </select>
+                </div>
+
+                {/* Preview cover if available */}
+                {coverUrl && (
+                    <div className="flex justify-center">
+                        <img
+                            src={coverUrl}
+                            alt="Book cover"
+                            className="h-32 rounded shadow-md"
+                        />
+                    </div>
+                )}
+
+                <button
+                    type="submit"
+                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 rounded-lg transition"
+                >
+                    Add Book
+                </button>
+            </form>
+        </div>
     );
 };
 

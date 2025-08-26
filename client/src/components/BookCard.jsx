@@ -28,7 +28,7 @@ const BookCard = ({ title, author, status, coverUrl, children }) => {
             </div>
 
             {/* Edit + Delete buttons */}
-            <div className='absolute top-4 right-4 flex space-x-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300'>
+            <div className='absolute bottom-4 right-4 flex space-x-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300'>
                 {children}
             </div>
         </div>

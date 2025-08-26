@@ -118,12 +118,12 @@ const Booklist = () => {
             >
               <div className='flex gap-3'>
                 <Link to={`/edit/${book._id}`}>
-                  <FaEdit className='text-yellow-400 hover:text-yellow-300 cursor-pointer mt-1' />
+                  <FaEdit className='text-yellow-400 hover:text-yellow-300 cursor-pointer' />
                 </Link>
 
                 <div className='relative'>
                   <button onClick={() => setConfirmDeleteId(book._id)}>
-                    <FaTrash className='text-red-500 hover:text-red-400 cursor-pointer' />
+                    <FaTrash className='text-red-500 hover:text-red-400 cursor-pointer mb-1' />
                   </button>
 
                   {confirmDeleteId === book._id && (
@@ -152,7 +152,7 @@ const Booklist = () => {
         </div>
       )}
 
-      <div className='flex justify-center mt-6 gap-4'>
+      <div className='flex justify-center mt-16 gap-4'>
         <button
           disabled={page === 1}
           onClick={() => setPage(prev => prev - 1)}

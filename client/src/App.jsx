@@ -8,6 +8,7 @@ import EditBook from './pages/EditBook';
 import Register from './pages/Register';
 import Login from './pages/Login';
 import About from './pages/About';
+import Recommendations from './pages/Recommendations';
 import ProtectedRoute from './components/ProtectedRoute';
 
 
@@ -25,6 +26,9 @@ function App() {
           <Route path='/books' element={
             <ProtectedRoute>
               <Booklist /></ProtectedRoute>} ></Route>
+          <Route path='/recommendations' element={
+            <ProtectedRoute>
+              <Recommendations /></ProtectedRoute>} ></Route>
           <Route path='/edit/:id' element={<EditBook />}></Route>
           <Route path='/register' element={<Register />}></Route>
           <Route path='/login' element={<Login />}></Route>

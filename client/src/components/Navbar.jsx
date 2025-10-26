@@ -20,6 +20,8 @@ const Navbar = () => {
             ? [
                 { path: "/books", label: "Book List" },
                 { path: "/add", label: "Add Book" },
+                { path: "/recommendations", label: "Recommendations" }
+
             ]
             : [
                 { path: "/register", label: "Register" },

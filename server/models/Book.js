@@ -28,6 +28,31 @@ const bookSchema = new mongoose.Schema({
         default: ""
     },
 
+    description: {
+        type: String,
+        default: ""
+    },
+
+    tags: {
+        type: [String],
+        default: []
+    },
+
+    popularity: {
+        type: Number, // this is a numeric score
+        default: 0
+    },
+
+    source: {
+        type: String,  // openlibrary or google
+        default: ""
+    },
+
+    externalId: {
+        type: String,
+        default: ""
+    },
+
     createdAt: {
         type: Date,
         default: Date.now

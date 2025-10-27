@@ -18,10 +18,12 @@ app.use(cors());  // allow frontend access
 app.use(express.json()); // to parse JSON requests
 
 const authRoutes = require('./routes/auth');
+const recommendationRoutes = require('./routes/recommendationRoutes'); 
 
 // Using Routes
 app.use('/api/books', require('./routes/bookRoutes'));
 app.use('/api/auth', authRoutes);
+app.use('/api/recommendations' , recommendationRoutes); 
 
 
 // Connect to MongoDb and starting the server

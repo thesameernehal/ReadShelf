@@ -7,6 +7,7 @@ const verifyToken = require('../routes/middleWare/verifyToken')
 
 
 // Making protected route - only logged in users can access recommendations
-router.get('/', verifyToken, getRecommendations);
+// router.get('/', verifyToken, getRecommendations);
+router.get('/', getRecommendations);
 
 module.exports = router; 

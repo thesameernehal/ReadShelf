@@ -144,18 +144,54 @@ exports.getRecommendations = async (req, res) => {
         }).sort({ popularity: -1 }).limit(300).lean();
 
         // If we have enough DB candidates, score and return
-        if (pool && pool.length >= 6) {
-            const maxPop = pool.reduce((m, b) => Math.max(m, b.popularity || 0), 1);
-            const scored = pool.map(book => {
-                const bookTags = (book.tags || []).map(t => String(t).toLowerCase());
-                const common = bookTags.filter(t => tagSet.has(t)).length;
-                const tagScore = Math.sqrt(common); // dampen
-                const popScore = (book.popularity || 0) / maxPop;
-                return { book, score: tagScore + 0.4 * popScore };
-            }).sort((a, b) => b.score - a.score).slice(0, TOP_N).map(s => s.book);
+        // inside recommendationController.js, replace the DB scoring block with this:
 
-            return res.json({ source: 'db', recommendations: scored });
+        if (pool && pool.length >= 1) {
+            // compute max popularity for normalization
+            const maxPop = pool.reduce((m, b) => Math.max(m, b.popularity || 0), 1);
+
+            // helper to compute Jaccard-like overlap: common / union
+            const tagSetArray = Array.from(tagSet);
+            const scored = pool.map(book => {
+                const bookTags = new Set((book.tags || []).map(t => String(t).toLowerCase().trim()).filter(Boolean));
+                // compute common and union
+                let common = 0;
+                for (const t of bookTags) if (tagSet.has(t)) common++;
+                const union = new Set([...tagSetArray, ...Array.from(bookTags)]).size || 1;
+                const overlapRatio = common / union; // between 0 and 1
+
+                const popScore = (book.popularity || 0) / maxPop; // 0..1
+
+                // final deterministic score (tune weights as needed)
+                const score = (overlapRatio * 0.8) + (popScore * 0.35);
+
+                return {
+                    book,
+                    score,
+                    overlapRatio,
+                    popScore
+                };
+            });
+
+            // sort by score desc, then popularity desc, then title asc
+            scored.sort((a, b) => {
+                if (b.score !== a.score) return b.score - a.score;
+                const aPop = a.book.popularity || 0, bPop = b.book.popularity || 0;
+                if (bPop !== aPop) return bPop - aPop;
+                const aTitle = (a.book.title || '').toLowerCase();
+                const bTitle = (b.book.title || '').toLowerCase();
+                return aTitle.localeCompare(bTitle);
+            });
+
+            // return top N but include score for debugging
+            const top = scored.slice(0, TOP_N).map(s => {
+                // attach score to the returned book object slightly (non-persistent)
+                return { ...s.book, _recoScore: Number(s.score.toFixed(4)), _overlap: Number(s.overlapRatio.toFixed(4)), _popScore: Number(s.popScore.toFixed(4)) };
+            });
+
+            return res.json({ source: 'db', recommendations: top });
         }
+
 
         // 7) If DB results are insufficient, call external APIs by tags and merge results
         const tagArray = Array.from(tagSet);

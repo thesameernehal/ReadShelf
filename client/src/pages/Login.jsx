@@ -19,20 +19,42 @@ const Login = () => {
                 password,
             });
 
-            // Store user in localStorage
-            localStorage.setItem('token', res.data.token);
-            localStorage.setItem('user', JSON.stringify(res.data.user));
-            setUser(res.data.user);
-            setMessage('Login Successfully !!!');
-            console.log('Logged in User : ', res.data.user);
+            // Extract token and user safely
+            const token =
+                res.data.token ||
+                res.data.jwt ||
+                res.data.accessToken ||
+                (res.data.user && res.data.user.token) ||
+                null;
 
-            // Navigation to Dashboard
-            navigate('/add')
+            const userObj =
+                res.data.user && typeof res.data.user === 'object'
+                    ? { ...res.data.user, token }
+                    : {
+                        id: res.data.id || '',
+                        username: res.data.username || '',
+                        email: res.data.email || '',
+                        name: res.data.name || '',
+                        token,
+                    };
+
+            // Save merged user object in localStorage
+            localStorage.setItem('user', JSON.stringify(userObj));
+            localStorage.setItem('token', userObj.token);  
+            setUser(userObj);
+            setMessage('Login Successfully !!!');
+            console.log('✅ Logged in User:', userObj);
+
+            // Navigate to Dashboard
+            // navigate('/add');
+            window.location.reload();
+
         } catch (err) {
             console.error(err);
             setMessage(err.response?.data?.message || 'Login Failed');
         }
     };
+
 
     return (
         <div className='min-h-screen flex items-center justify-center bg-gray-900 px-4'>
@@ -41,10 +63,10 @@ const Login = () => {
                 <h2 className='text-2xl font-semibold text-center mb-6'>Login to ReadShelf</h2>
 
                 <form onSubmit={handleSubmit} className='space-y-4'>
-                    <input type="email" placeholder='Email' value={email} onChange={(e) => setEmail(e.target.value)} 
-                    className='w-full px-4 py-2 bg-gray-700 rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-yellow-400 required'/>
+                    <input type="email" placeholder='Email' value={email} onChange={(e) => setEmail(e.target.value)}
+                        className='w-full px-4 py-2 bg-gray-700 rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-yellow-400 required' />
 
-                    <input type="password" placeholder='Password' value={password} onChange={(e) => setPassword(e.target.value)} className='w-full px-4 py-2 bg-gray-700 rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-yellow-400 required'/>
+                    <input type="password" placeholder='Password' value={password} onChange={(e) => setPassword(e.target.value)} className='w-full px-4 py-2 bg-gray-700 rounded-md border border-gray-600 focus:outline-none focus:ring-2 focus:ring-yellow-400 required' />
 
                     <button type='submit' className='w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-md transition'>Login</button>
 

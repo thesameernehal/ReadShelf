@@ -17,32 +17,35 @@ const Booklist = () => {
 
   useEffect(() => {
     const fetchBooks = async () => {
-      setLoading(true);
-      const token = localStorage.getItem("token");
-
       try {
-        const res = await axios.get("http://localhost:5000/api/books", {
+        const storedUser = JSON.parse(localStorage.getItem("user"));
+        const token = storedUser?.token;
+
+        console.log("🧩 Fetched token in Booklist:", token); // debug
+
+        const res = await fetch(`http://localhost:5000/api/books?page=${page}&limit=${limit}`, {
           headers: {
-            Authorization: `Bearer ${token}`,
-          },
-          params: {
-            page,
-            limit: 6, // adjust how many books per page
+            "Content-Type": "application/json",
+            Authorization: token ? `Bearer ${token}` : "",
           },
         });
 
-        setBooks(res.data.books);
-        setTotalPages(res.data.pages || 1);
+        if (!res.ok) {
+          const errData = await res.json();
+          throw new Error(errData.message || "Failed to fetch books");
+        }
+
+        const data = await res.json();
+        console.log("✅ Books response:", data);
+        setBooks(data.books || []);
       } catch (err) {
-        console.error(err);
-        setError("Failed to fetch books");
-      } finally {
-        setLoading(false);
+        console.error("Fetch error:", err);
       }
     };
 
     fetchBooks();
   }, [page]);
+
 
 
   if (loading) return <p>Loading...</p>;

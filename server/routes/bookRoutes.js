@@ -65,26 +65,49 @@ router.get("/", async (req, res) => {
 });
 
 // POST add a new book
-router.post('/', async (req, res) => {
-    const { title, author, status } = req.body;
-    const userId = req.user.userId;
-
-    let coverUrl = await fetchGoogleBooksCover({ title, author });
-
+router.post('/', verifyToken, async (req, res) => {
     try {
-        const newBook = new Book({
+        // req.user or req.userId is set by verifyToken middleware
+        const userId = (req.user && req.user.id) || req.userId || null;
+        if (!userId) {
+            return res.status(401).json({ message: 'Unauthorized: user id missing' });
+        }
+
+        // pick only allowed fields from body
+        const {
             title,
             author,
+            status = 'Wishlist',
+            coverUrl = '',
+            tags = [],
+            popularity = 0,
+        } = req.body;
+
+        // basic validation
+        if (!title || !author) {
+            return res.status(400).json({ message: 'Title and author are required' });
+        }
+
+        // Create book and assign userId from token (server-authoritative)
+        const book = new Book({
+            title: String(title).trim(),
+            author: String(author).trim(),
             status,
-            userId,
-            coverUrl
+            coverUrl,
+            tags: Array.isArray(tags) ? tags : [],
+            popularity: Number(popularity) || 0,
+            userId, // <-- important: set owner from token
         });
 
-        const savedBook = await newBook.save();
-        res.status(201).json(savedBook);
+        const saved = await book.save();
+        return res.status(201).json({ message: 'Book created', book: saved });
     } catch (err) {
-        console.error(err);
-        res.status(400).json({ message: err.message });
+        console.error('Create book error:', err);
+        // If mongoose validation errored, send helpful info
+        if (err.name === 'ValidationError') {
+            return res.status(400).json({ message: 'Validation failed', errors: err.errors });
+        }
+        return res.status(500).json({ message: 'Server error' });
     }
 });
 

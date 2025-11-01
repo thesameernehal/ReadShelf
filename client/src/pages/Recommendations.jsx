@@ -6,39 +6,65 @@ export default function Recommendations() {
   const [source, setSource] = useState("");
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    const fetchRecommendations = async () => {
+  function getStoredToken() {
+    try {
+      const raw = localStorage.getItem('user');
+      if (!raw) return null;
+
+      // If it's a JSON-stringified object, parse it
+      let parsed;
       try {
-        setLoading(true);
-        const token = localStorage.getItem("user")
-          ? JSON.parse(localStorage.getItem("user")).token
-          : null;
+        parsed = JSON.parse(raw);
+      } catch {
+        // not JSON, maybe token stored directly as string
+        parsed = raw;
+      }
 
-        const res = await fetch("http://localhost:5000/api/recommendations", {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: token ? `Bearer ${token}` : "",
-          },
-        });
+      // try common keys
+      if (typeof parsed === 'object' && parsed !== null) {
+        return parsed.token || parsed.jwt || parsed.accessToken || null;
+      }
+      // if it's a plain string, return it
+      if (typeof parsed === 'string') {
+        return parsed;
+      }
+      return null;
+    } catch (e) {
+      console.error('getStoredToken error', e);
+      return null;
+    }
+  }
 
-        if (!res.ok) {
-          const errData = await res.json();
-          throw new Error(errData.message || "Failed to fetch recommendations");
+  useEffect(() => {
+    const fetchRecs = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const token = getStoredToken();
+        console.log('DEBUG token (do not commit):', token); // remove after debugging
+        const headers = { 'Content-Type': 'application/json' };
+        if (token && typeof token === 'string') {
+          // ensure header uses "Bearer <token>"
+          headers.Authorization = `Bearer ${token}`;
         }
 
+        const res = await fetch('/api/recommendations', { headers });
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.message || 'Failed to load recommendations');
+        }
         const data = await res.json();
-        setRecommendations(data.recommendations || []);
-        setSource(data.source || "");
-      } catch (err) {
-        console.error("Error fetching recommendations:", err);
-        setError(err.message);
+        setBooks(data.recommendations || []);
+      } catch (error) {
+        setError(error.message || 'Error');
       } finally {
         setLoading(false);
       }
     };
 
-    fetchRecommendations();
+    fetchRecs();
   }, []);
+
 
   if (loading) {
     return (

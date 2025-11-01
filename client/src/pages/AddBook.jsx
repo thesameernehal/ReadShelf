@@ -8,6 +8,10 @@ const AddBook = ({ onBookAdded }) => {
     const [status, setStatus] = useState("Reading");
     const [coverUrl, setCoverUrl] = useState("");
 
+    // Added missing states so handleSubmit won't throw ReferenceError
+    const [tags, setTags] = useState([]); // optional, not shown in UI currently
+    const [popularity, setPopularity] = useState(0);
+
     // 🔹 Fetch from Google Books API when title changes
     const fetchBookDetails = async (bookTitle) => {
         if (!bookTitle.trim()) return;
@@ -36,30 +40,69 @@ const AddBook = ({ onBookAdded }) => {
         }
     };
 
+    // handleSubmit - robust and uses available state vars
     const handleSubmit = async (e) => {
         e.preventDefault();
 
+        // basic validation
+        if (!title.trim() || !author.trim()) {
+            toast.error("Please provide both title and author.");
+            return;
+        }
+
         try {
-            const token = localStorage.getItem("token");
+            const payload = {
+                title: title.trim(),
+                author: author.trim(),
+                status: status || "Wishlist",
+                coverUrl: coverUrl || "",
+                tags: Array.isArray(tags) ? tags : [],
+                popularity: typeof popularity === "number" ? popularity : 0,
+            };
 
-            const res = await axios.post(
-                "http://localhost:5000/api/books",
-                { title, author, status },
-                { headers: { Authorization: `Bearer ${token}` } }
-            );
-
-            if (res.status === 201) {
-                toast.success("Book added successfully");
-                setTitle("");
-                setAuthor("");
-                setStatus("Reading");
-                setCoverUrl("");
-            } else {
-                toast.error("Failed to add book");
+            // get token robustly (checks both storage patterns)
+            let token = null;
+            try {
+                const raw = localStorage.getItem("user");
+                if (raw) {
+                    const parsed = JSON.parse(raw);
+                    token = parsed?.token || localStorage.getItem("token") || null;
+                } else {
+                    token = localStorage.getItem("token") || null;
+                }
+            } catch (err) {
+                token = localStorage.getItem("token") || null;
             }
-        } catch (error) {
-            console.log(error);
-            toast.error("Failed to add book");
+
+            const headers = { "Content-Type": "application/json" };
+            if (token) headers.Authorization = `Bearer ${token}`;
+
+            console.log('DEBUG add-book payload:', JSON.stringify(payload));
+
+            const res = await axios.post("http://localhost:5000/api/books", payload, {
+                headers,
+            });
+
+            console.log("✅ Add book response:", res.data);
+            toast.success("Book added successfully!");
+
+            // clear form (optional)
+            setTitle("");
+            setAuthor("");
+            setStatus("Reading");
+            setCoverUrl("");
+            setTags([]);
+            setPopularity(0);
+
+            // notify parent if provided (keep existing behavior)
+            if (typeof onBookAdded === "function") {
+                onBookAdded(res.data);
+            }
+        } catch (err) {
+            console.error("❌ Add book error", err);
+            const msg = err.response?.data?.message || err.message || "Add book failed";
+            toast.error(msg);
+            alert(msg); // keep fallback for immediate feedback
         }
     };
 
@@ -110,11 +153,7 @@ const AddBook = ({ onBookAdded }) => {
                 {/* Preview cover if available */}
                 {coverUrl && (
                     <div className="flex justify-center">
-                        <img
-                            src={coverUrl}
-                            alt="Book cover"
-                            className="h-32 rounded shadow-md"
-                        />
+                        <img src={coverUrl} alt="Book cover" className="h-32 rounded shadow-md" />
                     </div>
                 )}
 

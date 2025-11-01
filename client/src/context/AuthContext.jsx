@@ -12,6 +12,7 @@ export const AuthProvider = ({ children }) => {
 
     // initial load , checking whether user exists in localstorage
     useEffect(() => {
+        console.log('AuthContext boot: localStorage user =', localStorage.getItem('user'));
         const storedUser = localStorage.getItem('user');
         if (storedUser) {
             setUser(JSON.parse(storedUser));
@@ -34,7 +35,7 @@ export const AuthProvider = ({ children }) => {
     }
 
     return (
-        <AuthContext.Provider value={{ user, setUser , login, logout}}>
+        <AuthContext.Provider value={{ user, setUser, login, logout }}>
             {children}
         </AuthContext.Provider>
     );

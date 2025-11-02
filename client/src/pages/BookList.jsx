@@ -14,66 +14,89 @@ const Booklist = () => {
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const LIMIT = 6;
 
   useEffect(() => {
     const fetchBooks = async () => {
+      setLoading(true);
+      setError(null);
+
+      // robust token getter
+      let token = null;
       try {
-        const storedUser = JSON.parse(localStorage.getItem("user"));
-        const token = storedUser?.token;
+        const raw = localStorage.getItem('user');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          token = parsed?.token || localStorage.getItem('token') || null;
+        } else {
+          token = localStorage.getItem('token') || null;
+        }
+      } catch (e) {
+        token = localStorage.getItem('token') || null;
+      }
 
-        console.log("🧩 Fetched token in Booklist:", token); // debug
+      // debug
+      console.log('DEBUG Booklist token =', token);
 
-        const res = await fetch(`http://localhost:5000/api/books?page=${page}&limit=${limit}`, {
+      try {
+        const res = await axios.get('http://localhost:5000/api/books', {
           headers: {
-            "Content-Type": "application/json",
-            Authorization: token ? `Bearer ${token}` : "",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          params: {
+            page,
+            limit: LIMIT,
           },
         });
 
-        if (!res.ok) {
-          const errData = await res.json();
-          throw new Error(errData.message || "Failed to fetch books");
-        }
-
-        const data = await res.json();
-        console.log("✅ Books response:", data);
-        setBooks(data.books || []);
+        const payload = res.data || {};
+        // server returns { books: [...], pages: N } in your server code earlier
+        const booksFromServer = payload.books || payload.data || [];
+        setBooks(Array.isArray(booksFromServer) ? booksFromServer : []);
+        setTotalPages(payload.pages || payload.totalPages || 1);
       } catch (err) {
-        console.error("Fetch error:", err);
+        console.error('Fetch books error:', err.response?.data || err.message || err);
+        setError('Failed to fetch books');
+      } finally {
+        setLoading(false);
       }
     };
 
     fetchBooks();
   }, [page]);
 
-
-
-  if (loading) return <p>Loading...</p>;
-  if (error) return <p>{error}</p>;
-
+  // Delete handler
   const handleDelete = async (id) => {
     try {
-      const token = localStorage.getItem('token');
+      const raw = localStorage.getItem('user');
+      const parsed = raw ? JSON.parse(raw) : null;
+      const token = parsed?.token || localStorage.getItem('token') || null;
+
       await axios.delete(`http://localhost:5000/api/books/${id}`, {
         headers: {
-          Authorization: `Bearer ${token}`,
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
       });
       setBooks(prevBooks => prevBooks.filter(book => book._id !== id));
       toast.success("Book deleted successfully");
       setConfirmDeleteId(null);
     } catch (err) {
-      console.error("Failed to delete book :", err);
+      console.error("Failed to delete book :", err.response?.data || err.message || err);
       toast.error("Unable to delete book");
     }
   };
 
+  // Filters & search
   const filteredBooks = books
     .filter((book) => filter === "All" || book.status === filter)
     .filter((book) =>
-      book.title.toLowerCase().includes(searchterm.toLowerCase()) ||
-      book.author.toLowerCase().includes(searchterm.toLowerCase())
+      (book.title || '').toLowerCase().includes(searchterm.toLowerCase()) ||
+      (book.author || '').toLowerCase().includes(searchterm.toLowerCase())
     );
+
+  // Render states
+  if (loading) return <p className="p-6">Loading...</p>;
+  if (error) return <p className="p-6 text-red-400">{error}</p>;
 
   return (
     <div className='min-h-screen bg-gray-900 text-white px-4 py-8'>

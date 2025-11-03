@@ -8,29 +8,25 @@ export default function Recommendations() {
 
   function getStoredToken() {
     try {
-      const raw = localStorage.getItem('user');
+      const raw = localStorage.getItem("user");
       if (!raw) return null;
 
-      // If it's a JSON-stringified object, parse it
       let parsed;
       try {
         parsed = JSON.parse(raw);
       } catch {
-        // not JSON, maybe token stored directly as string
         parsed = raw;
       }
 
-      // try common keys
-      if (typeof parsed === 'object' && parsed !== null) {
+      if (typeof parsed === "object" && parsed !== null) {
         return parsed.token || parsed.jwt || parsed.accessToken || null;
       }
-      // if it's a plain string, return it
-      if (typeof parsed === 'string') {
+      if (typeof parsed === "string") {
         return parsed;
       }
       return null;
     } catch (e) {
-      console.error('getStoredToken error', e);
+      console.error("getStoredToken error", e);
       return null;
     }
   }
@@ -41,22 +37,27 @@ export default function Recommendations() {
       setError(null);
       try {
         const token = getStoredToken();
-        console.log('DEBUG token (do not commit):', token); // remove after debugging
-        const headers = { 'Content-Type': 'application/json' };
-        if (token && typeof token === 'string') {
-          // ensure header uses "Bearer <token>"
+        // debug: remove later if you want
+        console.log("DEBUG recommendations token:", token);
+
+        const headers = { "Content-Type": "application/json" };
+        if (token && typeof token === "string") {
           headers.Authorization = `Bearer ${token}`;
         }
 
-        const res = await fetch('/api/recommendations', { headers });
+        const res = await fetch("/api/recommendations", { headers });
         if (!res.ok) {
           const errData = await res.json().catch(() => ({}));
-          throw new Error(errData.message || 'Failed to load recommendations');
+          throw new Error(errData.message || "Failed to load recommendations");
         }
         const data = await res.json();
-        setBooks(data.recommendations || []);
-      } catch (error) {
-        setError(error.message || 'Error');
+
+        // data may be { source, recommendations: [...] } or similar
+        const items = data.recommendations || data.recs || data.items || [];
+        setRecommendations(Array.isArray(items) ? items : []);
+        setSource(data.source || "");
+      } catch (err) {
+        setError(err.message || "Error fetching recommendations");
       } finally {
         setLoading(false);
       }
@@ -64,7 +65,6 @@ export default function Recommendations() {
 
     fetchRecs();
   }, []);
-
 
   if (loading) {
     return (
@@ -82,7 +82,7 @@ export default function Recommendations() {
     );
   }
 
-  if (recommendations.length === 0) {
+  if (!recommendations || recommendations.length === 0) {
     return (
       <div className="flex justify-center items-center h-[70vh] text-gray-400">
         No recommendations found. Try adding some books first!
@@ -96,13 +96,13 @@ export default function Recommendations() {
         Recommended Books for You
       </h2>
       <p className="text-center text-gray-400 mb-8">
-        Source: <span className="text-emerald-400 font-medium">{source}</span>
+        Source: <span className="text-emerald-400 font-medium">{source || "unknown"}</span>
       </p>
 
       <div className="grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
         {recommendations.map((book, idx) => (
           <div
-            key={book._id || idx}
+            key={book._id || `${book.source || "ext"}|${book.externalId || book.title}-${idx}`}
             className="bg-gray-800 rounded-2xl p-4 shadow-md hover:shadow-lg hover:scale-105 transition-all duration-300"
           >
             <img
@@ -114,7 +114,7 @@ export default function Recommendations() {
               {book.title}
             </h3>
             <p className="text-sm text-gray-400 mb-2 line-clamp-1">
-              {book.authors?.join(", ") || "Unknown Author"}
+              {(book.authors && book.authors.join(", ")) || book.author || "Unknown Author"}
             </p>
             {book._recoScore && (
               <p className="text-xs text-emerald-400 mb-2">

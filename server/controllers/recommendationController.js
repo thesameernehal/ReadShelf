@@ -4,6 +4,15 @@ const fetch = global.fetch || require('node-fetch'); // node-fetch fallback
 
 // ---------- Helpers to call external APIs ----------
 
+// Utility: normalize title+author key for de-duplication
+function normalizeTitleAuthorKey(item) {
+    const title = (item.title || '').toString().trim().toLowerCase();
+    const author = (item.authors && item.authors[0]) || item.author || '';
+    const a = ('' + author).toString().trim().toLowerCase();
+    // use first 60 chars of title + first author to avoid extremely long keys
+    return `${title.slice(0, 60)}|${a.slice(0, 60)}`;
+}
+
 // Search Open Library (returns standardized book-like objects)
 async function searchOpenLibrary(query, limit = 8) {
     try {
@@ -20,12 +29,13 @@ async function searchOpenLibrary(query, limit = 8) {
             return {
                 title: doc.title || 'Untitled',
                 authors: doc.author_name || [],
-                description: (doc.first_sentence && (typeof doc.first_sentence === 'string' ? doc.first_sentence : doc.first_sentence.join(' '))) || doc.subtitle || '',
+                description: (doc.first_sentence && (typeof doc.first_sentence === 'string' ? doc.first_sentence : (Array.isArray(doc.first_sentence) ? doc.first_sentence.join(' ') : ''))) || doc.subtitle || '',
                 coverUrl,
                 source: 'openlibrary',
                 externalId,
                 tags,
-                popularity: doc.edition_count || 0
+                popularity: doc.edition_count || 0,
+                _normKey: normalizeTitleAuthorKey({ title: doc.title, authors: doc.author_name })
             };
         });
     } catch (err) {
@@ -57,7 +67,8 @@ async function searchGoogleBooks(query, limit = 8) {
                 source: 'google',
                 externalId,
                 tags,
-                popularity: item.saleInfo?.buyLink ? 50 : (item.accessInfo?.pdf ? 30 : 10)
+                popularity: item.saleInfo?.buyLink ? 50 : (item.accessInfo?.pdf ? 30 : 10),
+                _normKey: normalizeTitleAuthorKey({ title: vol.title, authors })
             };
         });
     } catch (err) {
@@ -66,25 +77,48 @@ async function searchGoogleBooks(query, limit = 8) {
     }
 }
 
-// Remove duplicates by a derived key
+// Remove exact duplicates by a derived key (keeps first seen)
 function uniqueByKey(arr, keyFn) {
     const seen = new Set();
     return arr.filter(it => {
-        const k = keyFn(it);
-        if (seen.has(k)) return false;
-        seen.add(k);
-        return true;
+        try {
+            const k = keyFn(it);
+            if (seen.has(k)) return false;
+            seen.add(k);
+            return true;
+        } catch (e) {
+            return true;
+        }
     });
 }
 
-// Merge external suggestions from both sources
+// Merge external suggestions from both sources (and dedupe by normalized key)
 async function getExternalSuggestionsByQuery(query, perSource = 6) {
     const [ol, google] = await Promise.all([
         searchOpenLibrary(query, perSource),
         searchGoogleBooks(query, perSource)
     ]);
     const merged = [...(ol || []), ...(google || [])];
-    return uniqueByKey(merged, i => (i.source || 'ext') + '|' + (i.externalId || (i.title + '|' + (i.authors?.[0] || ''))));
+
+    // First remove true-duplicates by external id/title if present
+    const byExternal = uniqueByKey(merged, i => (i.source || 'ext') + '|' + (i.externalId || (i.title + '|' + (i.authors?.[0] || ''))));
+
+    // Then collapse editions by normalized title-author key: keep the item with max popularity
+    const map = new Map();
+    for (const item of byExternal) {
+        const k = item._normKey || normalizeTitleAuthorKey(item);
+        const prev = map.get(k);
+        if (!prev) {
+            map.set(k, item);
+        } else {
+            // pick the one with higher popularity (or prefer DB-like sources later)
+            if ((item.popularity || 0) > (prev.popularity || 0)) {
+                map.set(k, item);
+            }
+        }
+    }
+
+    return Array.from(map.values()).slice(0, perSource * 2); // return some variety
 }
 
 // ---------- Main controller ----------
@@ -99,7 +133,6 @@ async function getExternalSuggestionsByQuery(query, perSource = 6) {
 exports.getRecommendations = async (req, res) => {
     try {
         // Accept both authenticated and guest users.
-        // If auth middleware set req.user or req.userId, use it. Otherwise userId = null (guest).
         const userId = (req.user && req.user.id) || req.userId || null;
         const TOP_N = 12;
 
@@ -143,33 +176,24 @@ exports.getRecommendations = async (req, res) => {
             tags: { $in: Array.from(tagSet) }
         }).sort({ popularity: -1 }).limit(300).lean();
 
-        // If we have enough DB candidates, score and return
-        // inside recommendationController.js, replace the DB scoring block with this:
-
         if (pool && pool.length >= 1) {
-            // compute max popularity for normalization
             const maxPop = pool.reduce((m, b) => Math.max(m, b.popularity || 0), 1);
-
-            // helper to compute Jaccard-like overlap: common / union
             const tagSetArray = Array.from(tagSet);
+
             const scored = pool.map(book => {
                 const bookTags = new Set((book.tags || []).map(t => String(t).toLowerCase().trim()).filter(Boolean));
-                // compute common and union
                 let common = 0;
                 for (const t of bookTags) if (tagSet.has(t)) common++;
                 const union = new Set([...tagSetArray, ...Array.from(bookTags)]).size || 1;
-                const overlapRatio = common / union; // between 0 and 1
-
-                const popScore = (book.popularity || 0) / maxPop; // 0..1
-
-                // final deterministic score (tune weights as needed)
+                const overlapRatio = common / union;
+                const popScore = (book.popularity || 0) / maxPop;
                 const score = (overlapRatio * 0.8) + (popScore * 0.35);
-
                 return {
                     book,
                     score,
                     overlapRatio,
-                    popScore
+                    popScore,
+                    _normKey: normalizeTitleAuthorKey(book)
                 };
             });
 
@@ -183,28 +207,66 @@ exports.getRecommendations = async (req, res) => {
                 return aTitle.localeCompare(bTitle);
             });
 
-            // return top N but include score for debugging
-            const top = scored.slice(0, TOP_N).map(s => {
-                // attach score to the returned book object slightly (non-persistent)
-                return { ...s.book, _recoScore: Number(s.score.toFixed(4)), _overlap: Number(s.overlapRatio.toFixed(4)), _popScore: Number(s.popScore.toFixed(4)) };
-            });
+            // now collapse duplicates in scored results by normalized title-author (prefer DB book if present)
+            const seenKeys = new Set();
+            const dedupedScored = [];
+            for (const s of scored) {
+                const k = s._normKey || normalizeTitleAuthorKey(s.book);
+                if (seenKeys.has(k)) continue;
+                seenKeys.add(k);
+                dedupedScored.push({ ...s.book, _recoScore: Number(s.score.toFixed(4)), _overlap: Number(s.overlapRatio.toFixed(4)), _popScore: Number(s.popScore.toFixed(4)) });
+                if (dedupedScored.length >= TOP_N) break;
+            }
 
-            return res.json({ source: 'db', recommendations: top });
+            // if enough DB results after dedupe, return them
+            if (dedupedScored.length >= Math.min(6, TOP_N)) {
+                return res.json({ source: 'db', recommendations: dedupedScored.slice(0, TOP_N) });
+            }
+
+            // otherwise we'll augment with external candidates below
         }
-
 
         // 7) If DB results are insufficient, call external APIs by tags and merge results
         const tagArray = Array.from(tagSet);
         const query = tagArray.slice(0, 3).join(' ') || 'popular books';
-        const externalCandidates = await getExternalSuggestionsByQuery(query, 8);
+        const externalCandidates = await getExternalSuggestionsByQuery(query, 12); // get more to fill gaps
 
-        // Merge DB pool (even if small) with externalCandidates, dedupe by DB _id or external key
-        const combined = uniqueByKey([...(pool || []), ...externalCandidates], item => {
-            if (item._id) return 'db|' + String(item._id);
-            return (item.source || 'ext') + '|' + (item.externalId || item.title);
+        // Merge DB pool (even if small) with externalCandidates, dedupe by normalized title-author
+        const combinedCandidates = [
+            ...(pool || []).map(b => ({ ...b, source: 'db', _normKey: normalizeTitleAuthorKey(b) })),
+            ...externalCandidates.map(e => ({ ...e, _normKey: e._normKey || normalizeTitleAuthorKey(e) }))
+        ];
+
+        // group by _normKey and pick the best candidate per key (prefer DB over external; else higher popularity)
+        const group = new Map();
+        for (const item of combinedCandidates) {
+            const k = item._normKey || normalizeTitleAuthorKey(item);
+            const prev = group.get(k);
+            if (!prev) {
+                group.set(k, item);
+            } else {
+                // prefer DB item
+                if (prev.source !== 'db' && item.source === 'db') {
+                    group.set(k, item);
+                } else {
+                    // otherwise keep item with higher popularity
+                    if ((item.popularity || 0) > (prev.popularity || 0)) {
+                        group.set(k, item);
+                    }
+                }
+            }
+        }
+
+        // produce a final array ordered: DB-first (by score/pop), then external by popularity
+        const finalArr = Array.from(group.values()).sort((a, b) => {
+            // prefer db source
+            if (a.source === 'db' && b.source !== 'db') return -1;
+            if (b.source === 'db' && a.source !== 'db') return 1;
+            // else by popularity desc
+            return (b.popularity || 0) - (a.popularity || 0);
         });
 
-        return res.json({ source: 'hybrid', recommendations: combined.slice(0, TOP_N) });
+        return res.json({ source: 'hybrid', recommendations: finalArr.slice(0, TOP_N) });
 
     } catch (err) {
         console.error('Hybrid recommendation error', err);

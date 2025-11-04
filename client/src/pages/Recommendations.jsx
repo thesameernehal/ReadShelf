@@ -45,7 +45,9 @@ export default function Recommendations() {
           headers.Authorization = `Bearer ${token}`;
         }
 
-        const res = await fetch("/api/recommendations", { headers });
+        // const res = await fetch("/api/recommendations", { headers });
+        const res = await fetch("http://localhost:5000/api/recommendations", { headers });
+
         if (!res.ok) {
           const errData = await res.json().catch(() => ({}));
           throw new Error(errData.message || "Failed to load recommendations");

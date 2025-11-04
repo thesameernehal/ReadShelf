@@ -56,7 +56,58 @@ export default function Recommendations() {
 
         // data may be { source, recommendations: [...] } or similar
         const items = data.recommendations || data.recs || data.items || [];
-        setRecommendations(Array.isArray(items) ? items : []);
+        // dedupe & prefer logic: collapse similar titles/authors into one representative
+        function normalizeKeyForFrontend(item) {
+          const rawTitle = (item.title || '').toString().trim().toLowerCase();
+          // remove bracketed text like [adaptation], (vol.1), numeric fractions etc.
+          let t = rawTitle.replace(/\[[^\]]*\]|\([^\)]*\)/g, '').replace(/\d+\/\d+/g, '');
+          t = t.replace(/\b(volume|vol|edition|part|book|series)\b/gi, ' ');
+          t = t.normalize ? t.normalize('NFD').replace(/[\u0300-\u036f]/g, '') : t;
+          t = t.replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80);
+
+          const author = ((item.authors && item.authors[0]) || item.author || '').toString().trim().toLowerCase();
+          const a = author.normalize ? author.normalize('NFD').replace(/[\u0300-\u036f]/g, '') : author;
+          const aClean = a.replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, ' ').trim().slice(0, 60);
+
+          return `${t}|${aClean}`;
+        }
+
+        // items is the array you parsed from response
+        const rawItems = Array.isArray(items) ? items : [];
+        const map = new Map();
+
+        for (const it of rawItems) {
+          const key = normalizeKeyForFrontend(it);
+          const existing = map.get(key);
+          if (!existing) {
+            map.set(key, it);
+            continue;
+          }
+
+          // prefer item with coverUrl
+          const existingHasCover = Boolean(existing.coverUrl);
+          const itHasCover = Boolean(it.coverUrl);
+
+          if (itHasCover && !existingHasCover) {
+            map.set(key, it);
+            continue;
+          }
+
+          // if both have (or both lack) cover, prefer higher popularity
+          const ePop = existing.popularity || 0;
+          const iPop = it.popularity || 0;
+          if (iPop > ePop) {
+            map.set(key, it);
+            continue;
+          }
+
+          // else keep existing (ties keep first)
+        }
+
+        // produce final deduped array, preserving original sort as much as possible
+        const deduped = Array.from(map.values()).slice(0, 12);
+        setRecommendations(deduped);
+
         setSource(data.source || "");
       } catch (err) {
         setError(err.message || "Error fetching recommendations");

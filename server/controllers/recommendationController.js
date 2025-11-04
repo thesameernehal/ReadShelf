@@ -5,13 +5,32 @@ const fetch = global.fetch || require('node-fetch'); // node-fetch fallback
 // ---------- Helpers to call external APIs ----------
 
 // Utility: normalize title+author key for de-duplication
+// improved normalization to collapse editions/annotations/language variants
 function normalizeTitleAuthorKey(item) {
-    const title = (item.title || '').toString().trim().toLowerCase();
-    const author = (item.authors && item.authors[0]) || item.author || '';
-    const a = ('' + author).toString().trim().toLowerCase();
-    // use first 60 chars of title + first author to avoid extremely long keys
-    return `${title.slice(0, 60)}|${a.slice(0, 60)}`;
+    const rawTitle = (item.title || '').toString().trim().toLowerCase();
+    const rawAuthor = (item.authors && item.authors[0]) || item.author || '';
+
+    // 1) remove bracketed annotations like [adaptation], (vol.1), [2/2], etc.
+    let t = rawTitle.replace(/\[[^\]]*\]|\([^\)]*\}/g, ''); // remove [...] and (...)
+    // 2) remove numeric fractions like "1/2"
+    t = t.replace(/\d+\/\d+/g, '');
+    // 3) remove common edition tokens (volume, vol, edition, part, book)
+    t = t.replace(/\b(volume|vol|edition|part|book|series)\b/gi, ' ');
+    // 4) remove punctuation and diacritics-ish (basic)
+    t = t.normalize ? t.normalize('NFD').replace(/[\u0300-\u036f]/g, '') : t;
+    t = t.replace(/[^a-z0-9\s]/g, ' ');
+    // 5) collapse whitespace
+    t = t.replace(/\s+/g, ' ').trim();
+
+    // author normalization: keep first author, lowercased and stripped
+    let a = ('' + rawAuthor).toString().trim().toLowerCase();
+    a = a.normalize ? a.normalize('NFD').replace(/[\u0300-\u036f]/g, '') : a;
+    a = a.replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, ' ').trim();
+
+    // limit lengths to avoid huge keys
+    return `${t.slice(0, 80)}|${a.slice(0, 60)}`;
 }
+
 
 // Search Open Library (returns standardized book-like objects)
 async function searchOpenLibrary(query, limit = 8) {
@@ -161,14 +180,48 @@ exports.getRecommendations = async (req, res) => {
         const tagSet = new Set(userTags);
 
         // 5) if tagSet empty -> derive query from title/author of first user book and call external APIs
+        // --- REPLACE the existing "tagSet.size === 0" branch with this block ---
         if (tagSet.size === 0) {
-            const sample = userBooks[0] || {};
-            const titlePart = sample.title || '';
-            const authorPart = sample.author || (sample.authors || []).join(' ') || '';
-            const q = (titlePart + ' ' + authorPart).trim() || 'popular books';
-            const external = await getExternalSuggestionsByQuery(q, 10);
-            return res.json({ source: 'external-derived', recommendations: external.slice(0, TOP_N) });
+            // Build up to 3 queries from the user's books (title + author) to increase variety
+            const queries = (userBooks || [])
+                .slice(0, 3)
+                .map(b => {
+                    const titlePart = (b.title || '').toString().trim();
+                    const authorPart = (b.author || (b.authors || []).join(' ') || '').toString().trim();
+                    return `${titlePart} ${authorPart}`.trim();
+                })
+                .filter(Boolean);
+
+            // If we couldn't build any query (very unlikely), fallback to popular subjects
+            if (queries.length === 0) {
+                const popularSubjects = ['fiction', 'fantasy', 'self help', 'technology', 'history'];
+                const q = `${popularSubjects[0]} ${popularSubjects[1]}`;
+                const external = await getExternalSuggestionsByQuery(q, 8);
+                return res.json({ source: 'external-popular', recommendations: external.slice(0, TOP_N) });
+            }
+
+            // Call external APIs for each query in parallel and merge results
+            const candidateLists = await Promise.all(queries.map(q => getExternalSuggestionsByQuery(q, 8)));
+            const merged = candidateLists.flat();
+
+            // Deduplicate by normalized key (prefer items with cover / higher popularity already handled later)
+            const unique = uniqueByKey(merged, i => {
+                const norm = i._normKey || (i.title || '').toString().toLowerCase().replace(/\s+/g, ' ').trim();
+                const auth = (i.authors && i.authors[0]) || i.author || '';
+                return (i.source || 'ext') + '|' + norm + '|' + auth.toString().toLowerCase().trim();
+            });
+
+            // If we still don't have enough variety, augment with popular subjects
+            if (unique.length < TOP_N) {
+                const popularSubjects = ['fiction', 'fantasy', 'self help', 'technology', 'history'];
+                const extra = await getExternalSuggestionsByQuery(`${popularSubjects[0]} ${popularSubjects[1]}`, 8);
+                const merged2 = uniqueByKey([...unique, ...extra], i => (i._normKey || (i.title || '')) + '|' + ((i.authors && i.authors[0]) || i.author || ''));
+                return res.json({ source: 'external-derived-multi', recommendations: merged2.slice(0, TOP_N) });
+            }
+
+            return res.json({ source: 'external-derived-multi', recommendations: unique.slice(0, TOP_N) });
         }
+
 
         // 6) DB-first: find candidate books from DB that share tags (exclude user's own)
         const pool = await Book.find({

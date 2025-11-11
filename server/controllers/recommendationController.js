@@ -181,18 +181,16 @@ exports.getRecommendations = async (req, res) => {
 
         // 5) if tagSet empty -> derive query from title/author of first user book and call external APIs
         // --- REPLACE the existing "tagSet.size === 0" branch with this block ---
+        // ---------- REPLACE tagSet.size === 0 branch with this ----------
         if (tagSet.size === 0) {
-            // Build up to 3 queries from the user's books (title + author) to increase variety
-            const queries = (userBooks || [])
-                .slice(0, 3)
-                .map(b => {
-                    const titlePart = (b.title || '').toString().trim();
-                    const authorPart = (b.author || (b.authors || []).join(' ') || '').toString().trim();
-                    return `${titlePart} ${authorPart}`.trim();
-                })
-                .filter(Boolean);
+            // if user has few books, query per book and interleave results so one book doesn't dominate
+            const queries = (userBooks || []).slice(0, 6).map(b => {
+                const titlePart = (b.title || '').toString().trim();
+                const authorPart = (b.author || (b.authors || []).join(' ') || '').toString().trim();
+                return `${titlePart} ${authorPart}`.trim();
+            }).filter(Boolean);
 
-            // If we couldn't build any query (very unlikely), fallback to popular subjects
+            // fallback to popular subjects if no queries
             if (queries.length === 0) {
                 const popularSubjects = ['fiction', 'fantasy', 'self help', 'technology', 'history'];
                 const q = `${popularSubjects[0]} ${popularSubjects[1]}`;
@@ -200,27 +198,61 @@ exports.getRecommendations = async (req, res) => {
                 return res.json({ source: 'external-popular', recommendations: external.slice(0, TOP_N) });
             }
 
-            // Call external APIs for each query in parallel and merge results
-            const candidateLists = await Promise.all(queries.map(q => getExternalSuggestionsByQuery(q, 8)));
-            const merged = candidateLists.flat();
+            // fetch candidates per query in parallel
+            const perQueryResults = await Promise.all(queries.map(q => getExternalSuggestionsByQuery(q, 8)));
 
-            // Deduplicate by normalized key (prefer items with cover / higher popularity already handled later)
-            const unique = uniqueByKey(merged, i => {
-                const norm = i._normKey || (i.title || '').toString().toLowerCase().replace(/\s+/g, ' ').trim();
-                const auth = (i.authors && i.authors[0]) || i.author || '';
-                return (i.source || 'ext') + '|' + norm + '|' + auth.toString().toLowerCase().trim();
+            // build a set of normalized keys for user's own books to avoid recommending same title
+            const userKeys = new Set((userBooks || []).map(b => normalizeTitleAuthorKey(b)));
+
+            // dedupe within each query result and filter out user-owned titles
+            const perQueryUnique = perQueryResults.map(list => {
+                return uniqueByKey(list.filter(i => !userKeys.has(i._normKey || normalizeTitleAuthorKey(i))),
+                    it => (it._normKey || normalizeTitleAuthorKey(it)));
             });
 
-            // If we still don't have enough variety, augment with popular subjects
-            if (unique.length < TOP_N) {
-                const popularSubjects = ['fiction', 'fantasy', 'self help', 'technology', 'history'];
-                const extra = await getExternalSuggestionsByQuery(`${popularSubjects[0]} ${popularSubjects[1]}`, 8);
-                const merged2 = uniqueByKey([...unique, ...extra], i => (i._normKey || (i.title || '')) + '|' + ((i.authors && i.authors[0]) || i.author || ''));
-                return res.json({ source: 'external-derived-multi', recommendations: merged2.slice(0, TOP_N) });
+            // now interleave results: pick up to perBookLimit from each query, in round-robin fashion
+            const perBookLimit = Math.max(2, Math.floor(TOP_N / Math.max(1, queries.length))); // at least 2
+            const finalList = [];
+            let idx = 0;
+            while (finalList.length < TOP_N) {
+                let added = false;
+                for (let qi = 0; qi < perQueryUnique.length; qi++) {
+                    const slot = perQueryUnique[qi];
+                    let take = 0;
+                    // add next available item for this query if not exceeded perBookLimit for this query
+                    while (take < perBookLimit) {
+                        const cand = slot.shift();
+                        if (!cand) break;
+                        // ensure we don't re-add same normalized key (global dedupe)
+                        const k = cand._normKey || normalizeTitleAuthorKey(cand);
+                        if (finalList.some(x => (x._normKey || normalizeTitleAuthorKey(x)) === k)) continue;
+                        finalList.push(cand);
+                        take++;
+                        added = true;
+                        if (finalList.length >= TOP_N) break;
+                    }
+                    if (finalList.length >= TOP_N) break;
+                }
+                if (!added) break; // nothing more to add
+                idx++;
+                if (idx > 10) break; // safety
             }
 
-            return res.json({ source: 'external-derived-multi', recommendations: unique.slice(0, TOP_N) });
+            // if still fewer than TOP_N, fill with popular external suggestions
+            if (finalList.length < TOP_N) {
+                const extra = await getExternalSuggestionsByQuery(queries.join(' '), Math.max(6, TOP_N - finalList.length));
+                for (const e of extra) {
+                    const k = e._normKey || normalizeTitleAuthorKey(e);
+                    if (!finalList.some(x => (x._normKey || normalizeTitleAuthorKey(x)) === k) && !userKeys.has(k)) {
+                        finalList.push(e);
+                        if (finalList.length >= TOP_N) break;
+                    }
+                }
+            }
+
+            return res.json({ source: 'external-derived-multi-interleaved', recommendations: finalList.slice(0, TOP_N) });
         }
+
 
 
         // 6) DB-first: find candidate books from DB that share tags (exclude user's own)

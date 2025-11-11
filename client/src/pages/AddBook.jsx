@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import axios from "axios";
 import { toast } from "react-toastify";
 
@@ -7,102 +7,83 @@ const AddBook = ({ onBookAdded }) => {
     const [author, setAuthor] = useState("");
     const [status, setStatus] = useState("Reading");
     const [coverUrl, setCoverUrl] = useState("");
+    const [loading, setLoading] = useState(false);
 
-    // Added missing states so handleSubmit won't throw ReferenceError
-    const [tags, setTags] = useState([]); // optional, not shown in UI currently
-    const [popularity, setPopularity] = useState(0);
-
-    // 🔹 Fetch from Google Books API when title changes
-    const fetchBookDetails = async (bookTitle) => {
-        if (!bookTitle.trim()) return;
+    // Robust token getter (safe fallback even if axios defaults are set)
+    function getStoredToken() {
         try {
-            const res = await axios.get(
-                `https://www.googleapis.com/books/v1/volumes?q=intitle:${encodeURIComponent(
-                    bookTitle
-                )}`
-            );
+            const raw = localStorage.getItem("user");
+            if (!raw) return localStorage.getItem("token") || null;
+            const parsed = JSON.parse(raw);
+            return parsed?.token || parsed?.jwt || localStorage.getItem("token") || null;
+        } catch {
+            return localStorage.getItem("token") || null;
+        }
+    }
 
-            if (res.data.items && res.data.items.length > 0) {
-                const bookData = res.data.items[0].volumeInfo;
+    // SERVER-PROXIED lookup: asks our backend which calls OpenLibrary then Google Books
+    const fetchBookDetails = async (bookTitle) => {
+        if (!bookTitle || !bookTitle.trim()) return;
+        try {
+            const res = await axios.get("http://localhost:5000/api/external/search", {
+                params: { title: bookTitle.trim() },
+                timeout: 6000,
+            });
 
-                // Auto-fill author if empty
-                if (!author && bookData.authors && bookData.authors.length > 0) {
-                    setAuthor(bookData.authors[0]);
-                }
+            const items = res.data?.items || [];
+            if (!items.length) return;
 
-                // Set cover image
-                if (bookData.imageLinks && bookData.imageLinks.thumbnail) {
-                    setCoverUrl(bookData.imageLinks.thumbnail);
-                }
-            }
+            // choose best: exact-ish title match > item with cover > first
+            const normalized = bookTitle.toLowerCase().trim();
+            let best = items.find(it => it.title && it.title.toLowerCase().includes(normalized)) || null;
+            if (!best) best = items.find(it => it.coverUrl) || items[0] || null;
+            if (!best) return;
+
+            if (!author && best.authors && best.authors.length > 0) setAuthor(best.authors[0]);
+            if (best.coverUrl) setCoverUrl(best.coverUrl);
         } catch (err) {
-            console.error("Google Books API error:", err);
+            console.error("Server-proxied external lookup failed:", err?.response?.data || err.message || err);
         }
     };
 
-    // handleSubmit - robust and uses available state vars
     const handleSubmit = async (e) => {
         e.preventDefault();
 
-        // basic validation
         if (!title.trim() || !author.trim()) {
-            toast.error("Please provide both title and author.");
+            toast.error("Title and Author are required");
             return;
         }
 
+        setLoading(true);
+
+        const payload = {
+            title: title.trim(),
+            author: author.trim(),
+            status: status || "Wishlist",
+            coverUrl: coverUrl || "",
+        };
+
         try {
-            const payload = {
-                title: title.trim(),
-                author: author.trim(),
-                status: status || "Wishlist",
-                coverUrl: coverUrl || "",
-                tags: Array.isArray(tags) ? tags : [],
-                popularity: typeof popularity === "number" ? popularity : 0,
-            };
+            // prefer axios default headers, but include token fallback
+            const token = getStoredToken();
+            const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
-            // get token robustly (checks both storage patterns)
-            let token = null;
-            try {
-                const raw = localStorage.getItem("user");
-                if (raw) {
-                    const parsed = JSON.parse(raw);
-                    token = parsed?.token || localStorage.getItem("token") || null;
-                } else {
-                    token = localStorage.getItem("token") || null;
-                }
-            } catch (err) {
-                token = localStorage.getItem("token") || null;
-            }
+            const res = await axios.post("http://localhost:5000/api/books", payload, { headers });
 
-            const headers = { "Content-Type": "application/json" };
-            if (token) headers.Authorization = `Bearer ${token}`;
-
-            console.log('DEBUG add-book payload:', JSON.stringify(payload));
-
-            const res = await axios.post("http://localhost:5000/api/books", payload, {
-                headers,
-            });
-
-            console.log("✅ Add book response:", res.data);
             toast.success("Book added successfully!");
-
-            // clear form (optional)
+            // reset form
             setTitle("");
             setAuthor("");
             setStatus("Reading");
             setCoverUrl("");
-            setTags([]);
-            setPopularity(0);
 
-            // notify parent if provided (keep existing behavior)
-            if (typeof onBookAdded === "function") {
-                onBookAdded(res.data);
-            }
+            if (typeof onBookAdded === "function") onBookAdded(res.data.book);
         } catch (err) {
-            console.error("❌ Add book error", err);
-            const msg = err.response?.data?.message || err.message || "Add book failed";
+            console.error("Add book error:", err?.response?.data || err.message || err);
+            const msg = err?.response?.data?.message || err.message || "Add book failed";
             toast.error(msg);
-            alert(msg); // keep fallback for immediate feedback
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -119,7 +100,7 @@ const AddBook = ({ onBookAdded }) => {
                         placeholder="Enter book title"
                         value={title}
                         onChange={(e) => setTitle(e.target.value)}
-                        onBlur={() => fetchBookDetails(title)} // 🔹 Fetch on blur
+                        onBlur={() => fetchBookDetails(title)} // server-proxied lookup on blur
                         className="w-full px-4 py-2 rounded-lg bg-gray-700 text-white border border-gray-600 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                         required
                     />
@@ -153,15 +134,20 @@ const AddBook = ({ onBookAdded }) => {
                 {/* Preview cover if available */}
                 {coverUrl && (
                     <div className="flex justify-center">
-                        <img src={coverUrl} alt="Book cover" className="h-32 rounded shadow-md" />
+                        <img
+                            src={coverUrl}
+                            alt="Book cover"
+                            className="h-32 rounded shadow-md"
+                        />
                     </div>
                 )}
 
                 <button
                     type="submit"
-                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 rounded-lg transition"
+                    disabled={loading}
+                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 rounded-lg transition disabled:opacity-60"
                 >
-                    Add Book
+                    {loading ? "Adding..." : "Add Book"}
                 </button>
             </form>
         </div>

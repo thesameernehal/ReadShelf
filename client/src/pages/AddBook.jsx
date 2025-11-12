@@ -2,6 +2,13 @@ import React, { useState } from "react";
 import axios from "axios";
 import { toast } from "react-toastify";
 
+/*
+  AddBook.jsx
+  - Kept all functionality (token getter, fetch lookup, submit flow) exactly as provided.
+  - Updated styling to match the project's dark teal-cyan theme and spacing used across pages.
+  - Minor layout change: added top spacing to avoid overlap with fixed navbar.
+*/
+
 const AddBook = ({ onBookAdded }) => {
     const [title, setTitle] = useState("");
     const [author, setAuthor] = useState("");
@@ -35,8 +42,9 @@ const AddBook = ({ onBookAdded }) => {
 
             // choose best: exact-ish title match > item with cover > first
             const normalized = bookTitle.toLowerCase().trim();
-            let best = items.find(it => it.title && it.title.toLowerCase().includes(normalized)) || null;
-            if (!best) best = items.find(it => it.coverUrl) || items[0] || null;
+            let best =
+                items.find((it) => it.title && it.title.toLowerCase().includes(normalized)) || null;
+            if (!best) best = items.find((it) => it.coverUrl) || items[0] || null;
             if (!best) return;
 
             if (!author && best.authors && best.authors.length > 0) setAuthor(best.authors[0]);
@@ -88,42 +96,42 @@ const AddBook = ({ onBookAdded }) => {
     };
 
     return (
-        <div className="max-w-md mx-auto mt-10">
+        <div className="max-w-md mx-auto mt-24 px-6 lg:px-12">
             <form
                 onSubmit={handleSubmit}
-                className="bg-gray-800 p-6 rounded-2xl shadow-md space-y-4"
+                className="bg-[#0b1720] p-6 rounded-2xl shadow-md space-y-4 border border-teal-700/20"
             >
                 <div>
-                    <label className="block text-sm font-medium mb-1">Book Title</label>
+                    <label className="block text-sm font-medium mb-1 text-gray-100">Book Title</label>
                     <input
                         type="text"
                         placeholder="Enter book title"
                         value={title}
                         onChange={(e) => setTitle(e.target.value)}
                         onBlur={() => fetchBookDetails(title)} // server-proxied lookup on blur
-                        className="w-full px-4 py-2 rounded-lg bg-gray-700 text-white border border-gray-600 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                        className="w-full px-4 py-2 rounded-lg bg-[#071018] text-gray-100 border border-teal-700/20 focus:ring-2 focus:ring-teal-400 focus:outline-none"
                         required
                     />
                 </div>
 
                 <div>
-                    <label className="block text-sm font-medium mb-1">Author</label>
+                    <label className="block text-sm font-medium mb-1 text-gray-100">Author</label>
                     <input
                         type="text"
                         placeholder="Enter author"
                         value={author}
                         onChange={(e) => setAuthor(e.target.value)}
-                        className="w-full px-4 py-2 rounded-lg bg-gray-700 text-white border border-gray-600 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                        className="w-full px-4 py-2 rounded-lg bg-[#071018] text-gray-100 border border-teal-700/20 focus:ring-2 focus:ring-teal-400 focus:outline-none"
                         required
                     />
                 </div>
 
                 <div>
-                    <label className="block text-sm font-medium mb-1">Status</label>
+                    <label className="block text-sm font-medium mb-1 text-gray-100">Status</label>
                     <select
                         value={status}
                         onChange={(e) => setStatus(e.target.value)}
-                        className="w-full px-4 py-2 rounded-lg bg-gray-700 text-white border border-gray-600 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                        className="w-full px-4 py-2 rounded-lg bg-[#071018] text-gray-100 border border-teal-700/20 focus:ring-2 focus:ring-teal-400 focus:outline-none"
                     >
                         <option value="Reading">📖 Reading</option>
                         <option value="Wishlist">📝 Wishlist</option>
@@ -137,7 +145,7 @@ const AddBook = ({ onBookAdded }) => {
                         <img
                             src={coverUrl}
                             alt="Book cover"
-                            className="h-32 rounded shadow-md"
+                            className="h-32 rounded shadow-md border border-teal-700/20 object-cover"
                         />
                     </div>
                 )}
@@ -145,7 +153,7 @@ const AddBook = ({ onBookAdded }) => {
                 <button
                     type="submit"
                     disabled={loading}
-                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 rounded-lg transition disabled:opacity-60"
+                    className="w-full bg-gradient-to-r from-cyan-600 to-teal-500 hover:from-cyan-500 hover:to-teal-600 text-black font-semibold py-2 rounded-lg transition disabled:opacity-60"
                 >
                     {loading ? "Adding..." : "Add Book"}
                 </button>

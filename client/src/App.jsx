@@ -2,7 +2,7 @@ import './App.css'
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import Home from './pages/Home';
 import Booklist from './pages/BookList';
-import Addbook from './pages/Addbook';
+import Addbook from './pages/AddBook';
 import Navbar from './components/Navbar';
 import EditBook from './pages/EditBook';
 import Register from './pages/Register';

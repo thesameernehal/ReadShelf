@@ -35,57 +35,73 @@ const Home = () => {
                 </div>
             </section>
 
+            {/* Divider */}
+            <hr className="border-teal-700/30 max-w-6xl mx-auto" />
+
             {/* Info Section */}
             <section className="px-6 lg:px-12 py-16 text-center">
                 <h2 className="text-3xl font-bold mb-10">Why use ReadShelf?</h2>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
-                    <div className="bg-gray-900 p-8 rounded-2xl shadow-lg hover:shadow-teal-500/20 hover:scale-105 transform transition">
-                        <div className="text-4xl mb-4">📚</div>
-                        <h3 className="text-xl font-semibold text-teal-400 mb-2">
-                            Track Your Reading
-                        </h3>
-                        <p className="text-gray-300">
-                            Add books to your shelf and monitor your reading progress easily.
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-8 max-w-6xl mx-auto">
+                    {/* Card 1 */}
+                    <div className="bg-gray-900 border border-teal-700/40 p-8 rounded-2xl shadow-lg hover:shadow-teal-500/30 hover:border-teal-400 transform hover:scale-105 transition">
+                        <h3 className="text-xl font-semibold text-teal-400 mb-3">Easy Book Tracking</h3>
+                        <p className="text-gray-300 text-sm">
+                            Add books to your shelf and monitor your reading progress effortlessly.
                         </p>
                     </div>
 
-                    <div className="bg-gray-900 p-8 rounded-2xl shadow-lg hover:shadow-teal-500/20 hover:scale-105 transform transition">
-                        <div className="text-4xl mb-4">🧠</div>
-                        <h3 className="text-xl font-semibold text-teal-400 mb-2">
-                            Stay Organized
-                        </h3>
-                        <p className="text-gray-300">
-                            Sort books by status — Reading, Completed or Wishlist in one place.
+                    {/* Card 2 */}
+                    <div className="bg-gray-900 border border-teal-700/40 p-8 rounded-2xl shadow-lg hover:shadow-teal-500/30 hover:border-teal-400 transform hover:scale-105 transition">
+                        <h3 className="text-xl font-semibold text-teal-400 mb-3">Smart Organization</h3>
+                        <p className="text-gray-300 text-sm">
+                            Sort books as “Reading”, “Completed” or “Wishlist” in one clean interface.
                         </p>
                     </div>
 
-                    <div className="bg-gray-900 p-8 rounded-2xl shadow-lg hover:shadow-teal-500/20 hover:scale-105 transform transition">
-                        <div className="text-4xl mb-4">🌙</div>
-                        <h3 className="text-xl font-semibold text-teal-400 mb-2">
-                            Dark Mode Ready
-                        </h3>
-                        <p className="text-gray-300">
-                            Enjoy a distraction-free, eye-comfortable reading experience anytime.
+                    {/* Card 3 */}
+                    <div className="bg-gray-900 border border-teal-700/40 p-8 rounded-2xl shadow-lg hover:shadow-teal-500/30 hover:border-teal-400 transform hover:scale-105 transition">
+                        <h3 className="text-xl font-semibold text-teal-400 mb-3">Cloud Access</h3>
+                        <p className="text-gray-300 text-sm">
+                            Access your book collection anytime, anywhere — securely stored in the cloud.
+                        </p>
+                    </div>
+
+                    {/* Card 4 */}
+                    <div className="bg-gray-900 border border-teal-700/40 p-8 rounded-2xl shadow-lg hover:shadow-teal-500/30 hover:border-teal-400 transform hover:scale-105 transition">
+                        <h3 className="text-xl font-semibold text-teal-400 mb-3">Dark Mode Ready</h3>
+                        <p className="text-gray-300 text-sm">
+                            Enjoy a sleek, distraction-free interface designed for long reading sessions.
                         </p>
                     </div>
                 </div>
             </section>
 
+            {/* Divider */}
+            <hr className="border-teal-700/30 max-w-6xl mx-auto" />
+
             {/* CTA Section */}
-            <section className="bg-gray-900 text-center py-16 px-6 text-white">
-                <h2 className="text-3xl font-bold mb-4">
-                    Ready to take control of your reading journey?
-                </h2>
-                <p className="text-gray-400 mb-6">
-                    Sign up now and start building your personalized bookshelf.
-                </p>
-                <Link
-                    to="/register"
-                    className="inline-block bg-teal-500 hover:bg-teal-400 text-black font-semibold py-3 px-6 rounded-xl shadow-lg transition"
-                >
-                    Get Started
-                </Link>
+            <section className="relative text-center py-20 px-6 overflow-hidden">
+                {/* Background gradient */}
+                <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-teal-900/20 to-gray-950 opacity-80"></div>
+
+                <div className="relative max-w-3xl mx-auto">
+                    <h2 className="text-3xl font-bold mb-4">
+                        Ready to take control of your reading journey?
+                    </h2>
+                    <p className="text-gray-300 mb-8">
+                        Sign up now and start building your personalized bookshelf.
+                    </p>
+                    <Link
+                        to="/register"
+                        className="inline-block bg-teal-500 hover:bg-teal-400 text-black font-semibold py-3 px-8 rounded-full shadow-lg transition"
+                    >
+                        Get Started
+                    </Link>
+                </div>
+
+                {/* Subtle glowing border bottom */}
+                <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-2/3 h-[2px] bg-gradient-to-r from-transparent via-teal-500 to-transparent"></div>
             </section>
         </div>
     );

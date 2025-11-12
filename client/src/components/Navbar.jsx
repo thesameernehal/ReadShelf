@@ -1,16 +1,16 @@
-import React, { useContext } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { AuthContext } from '../context/AuthContext';
-import { motion } from 'framer-motion';
+import React, { useContext } from "react";
+import { Link, useNavigate, useLocation } from "react-router-dom";
+import { AuthContext } from "../context/AuthContext";
+import { motion } from "framer-motion";
 
 const Navbar = () => {
     const navigate = useNavigate();
     const { user, logout } = useContext(AuthContext);
-    const location = useLocation(); // to detect active route
+    const location = useLocation();
 
     const handleLogout = () => {
         logout();
-        navigate('/login');
+        navigate("/login");
     };
 
     const navLinks = [
@@ -20,8 +20,7 @@ const Navbar = () => {
             ? [
                 { path: "/books", label: "Book List" },
                 { path: "/add", label: "Add Book" },
-                { path: "/recommendations", label: "Recommendations" }
-
+                { path: "/recommendations", label: "Recommendations" },
             ]
             : [
                 { path: "/register", label: "Register" },
@@ -30,27 +29,32 @@ const Navbar = () => {
     ];
 
     return (
-        <nav className="bg-gray-800 text-white shadow-md rounded-md w-full">
-            <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
-                <div className="text-xl font-semibold tracking-wide">
-                    <Link to="/">ReadShelf</Link>
-                </div>
+        <nav className="fixed top-0 left-0 right-0 z-50 bg-[#0d1117]/95 backdrop-blur-md text-gray-100 shadow-lg border-b border-cyan-700/40">
+            <div className="max-w-7xl mx-auto px-6 py-3 flex justify-between items-center">
+                {/* Logo */}
+                <Link
+                    to="/"
+                    className="text-2xl font-semibold tracking-wide text-cyan-400 hover:text-teal-300 transition-all"
+                >
+                    Read<span className="text-gray-100">Shelf</span>
+                </Link>
 
-                <ul className="flex space-x-6 items-center text-lg font-medium">
+                {/* Nav Links */}
+                <ul className="flex space-x-6 items-center font-medium">
                     {navLinks.map((link) => (
                         <li key={link.path} className="relative">
                             <Link
                                 to={link.path}
-                                className="hover:text-yellow-400 transition relative"
+                                className={`transition-all duration-200 hover:text-cyan-400 ${location.pathname === link.path ? "text-cyan-400" : ""
+                                    }`}
                             >
                                 {link.label}
-                                {/* underline animation */}
                                 {location.pathname === link.path && (
                                     <motion.div
                                         layoutId="underline"
-                                        className="absolute left-0 -bottom-1 h-[2px] bg-yellow-400 w-full rounded"
+                                        className="absolute left-0 -bottom-1 h-[2px] bg-cyan-400 w-full rounded"
                                         initial={false}
-                                        transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                                        transition={{ type: "spring", stiffness: 350, damping: 25 }}
                                     />
                                 )}
                             </Link>
@@ -61,7 +65,7 @@ const Navbar = () => {
                         <li>
                             <button
                                 onClick={handleLogout}
-                                className="bg-red-500 hover:bg-red-700 text-white px-3 py-1 rounded-md transition"
+                                className="ml-4 bg-gradient-to-r from-cyan-600 to-teal-700 hover:from-cyan-700 hover:to-teal-800 text-white px-4 py-1.5 rounded-md font-medium transition-all shadow-md hover:shadow-cyan-500/30"
                             >
                                 Logout
                             </button>

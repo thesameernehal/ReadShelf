@@ -55,7 +55,8 @@ const Login = () => {
             console.log("✅ Logged in User:", userObj);
 
             // Reload to refresh protected routes / state
-            window.location.reload();
+            navigate('/');
+            // window.location.reload();
         } catch (err) {
             console.error(err);
             setMessage(err.response?.data?.message || "Login Failed");

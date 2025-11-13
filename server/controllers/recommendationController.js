@@ -1,13 +1,11 @@
 // server/controllers/recommendationController.js
+// Revised: reduce strict author-exclusion (use a soft penalty instead), make external fallback broader,
+// relax per-author cap to 2, and include user tags/genres in seed queries to improve variety.
+
 const Book = require('../models/Book');
 const fetch = global.fetch || require('node-fetch');
 const axios = require('axios');
 
-/**
- * Helpers: external source lookups
- */
-
-// Search Open Library (returns standardized book-like objects)
 async function searchOpenLibrary(query, limit = 8) {
     try {
         const url = `https://openlibrary.org/search.json?q=${encodeURIComponent(query)}&limit=${limit}`;
@@ -33,12 +31,11 @@ async function searchOpenLibrary(query, limit = 8) {
             };
         });
     } catch (err) {
-        console.error('OpenLibrary error', err && err.message ? err.message : err);
+        console.warn('OpenLibrary error', err && err.message ? err.message : err);
         return [];
     }
 }
 
-// Search Google Books (returns standardized book-like objects)
 async function searchGoogleBooks(query, limit = 8) {
     try {
         const url = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&maxResults=${limit}`;
@@ -65,12 +62,11 @@ async function searchGoogleBooks(query, limit = 8) {
             };
         });
     } catch (err) {
-        console.error('Google Books error', err && err.message ? err.message : err);
+        console.warn('Google Books error', err && err.message ? err.message : err);
         return [];
     }
 }
 
-// Remove duplicates by a derived key
 function uniqueByKey(arr, keyFn) {
     const seen = new Set();
     return arr.filter(it => {
@@ -81,30 +77,15 @@ function uniqueByKey(arr, keyFn) {
     });
 }
 
-// Merge external suggestions from both sources
-async function getExternalSuggestionsByQuery(query, perSource = 6) {
-    const [ol, google] = await Promise.all([
-        searchOpenLibrary(query, perSource),
-        searchGoogleBooks(query, perSource)
-    ]);
-    const merged = [...(ol || []), ...(google || [])];
-    return uniqueByKey(merged, i => (i.source || 'ext') + '|' + (i.externalId || (i.title + '|' + (i.authors?.[0] || ''))));
-}
-
-/**
- * Server-side filtering & dedupe helpers
- */
-
-// Extended negative keywords (workbook, student, translation, etc.)
 const NEGATIVE_TITLE_KEYWORDS = [
     'summary', 'summaries', 'guide', 'notes', 'journal', 'study', 'analysis',
-    'review', 'companion', 'cheat', 'excerpt', 'summary of', 'summary :', 'key ideas',
-    'workbook', 'student', 'solutions', 'answers', 'translation', 'translated',
-    'tamil', 'hindi', 'urdu', 'kannada', 'lecture', 'class', 'syllabus', 'annotated',
-    'illustrated', 'adaptation', 'summary -', 'summary:', 'study guide'
+    'review', 'companion', 'cheat', 'excerpt', 'workbook', 'student', 'solutions',
+    'answers', 'translation', 'translated', 'lecture', 'class', 'syllabus', 'annotated',
+    'illustrated', 'adaptation', 'study guide'
 ];
 
-// small list of language tokens to detect translations/adaptations
+const BIO_KEYWORDS = ['biography', 'who is', 'about the life', 'a life of', 'the story of', 'the life of'];
+
 const LANGUAGE_TOKENS = ['tamil', 'hindi', 'urdu', 'spanish', 'french', 'german', 'telugu', 'marathi', 'bengali', 'kannada'];
 
 function looksLikeNonPrimaryWork(title = '') {
@@ -140,20 +121,12 @@ function pickBetterItem(a, b) {
     return a;
 }
 
-/**
- * processCandidates(candidates, topN, options)
- * options:
- *   - excludeKeys: Set of normalized title|author keys to skip (user's own books)
- *   - minPrimariesToFilter: integer controlling when to drop noisy items (default 3)
- */
 function processCandidates(candidates = [], topN = 12, options = {}) {
     const { excludeKeys = new Set(), minPrimariesToFilter = Math.min(3, topN) } = options;
     if (!Array.isArray(candidates)) candidates = [];
 
-    // 1) base filter (has title or id)
     let list = candidates.filter(it => it && (it.title || it.externalId || it._id));
 
-    // 2) exclude any items that match user's own books (by normalized key)
     if (excludeKeys && excludeKeys.size > 0) {
         list = list.filter(it => {
             const k = normalizeTitleAuthorKeyServer(it);
@@ -161,13 +134,11 @@ function processCandidates(candidates = [], topN = 12, options = {}) {
         });
     }
 
-    // 3) prefer to remove noisy items if there are enough primary candidates
     const primary = list.filter(it => !looksLikeNonPrimaryWork(it.title));
     if (primary.length >= Math.min(topN, minPrimariesToFilter)) {
         list = primary;
     }
 
-    // 4) dedupe by normalized key, picking best representative
     const map = new Map();
     for (const it of list) {
         const key = normalizeTitleAuthorKeyServer(it);
@@ -179,7 +150,6 @@ function processCandidates(candidates = [], topN = 12, options = {}) {
         }
     }
 
-    // 5) scoring & sorting
     const arr = Array.from(map.values());
     function score(it) {
         let s = 0;
@@ -187,7 +157,8 @@ function processCandidates(candidates = [], topN = 12, options = {}) {
         s += Number(it.popularity || 0);
         if (looksLikeNonPrimaryWork(it.title)) s -= 700;
         const t = (it.title || '').toString().toLowerCase();
-        if (t.includes('student workbook') || t.includes('workbook')) s -= 400;
+        if (t.includes('workbook')) s -= 400;
+        s += Number(it._authorMatchBonus || 0) + Number(it._titleMatchBonus || 0);
         return s;
     }
 
@@ -195,143 +166,226 @@ function processCandidates(candidates = [], topN = 12, options = {}) {
     return arr.slice(0, topN);
 }
 
-/**
- * Main controller: GET /api/recommendations
- * Hybrid strategy with server-side processing
- */
+/* CF helpers */
+function tokenizeForSimilarity(book) {
+    const tags = new Set(((book.tags || [])).map(t => String(t).toLowerCase().trim()).filter(Boolean));
+    const author = ((book.authors && book.authors[0]) || book.author || '').toString().toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
+    if (author) tags.add(author);
+    const titleWords = (book.title || '').toString().toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(w => w.length > 2);
+    for (const w of titleWords.slice(0, 10)) tags.add(w);
+    return tags;
+}
+
+function jaccardScore(setA, setB) {
+    if (!setA || !setB) return 0;
+    const a = Array.from(setA);
+    const b = Array.from(setB);
+    if (a.length === 0 || b.length === 0) return 0;
+    const inter = a.filter(x => b.includes(x)).length;
+    const uni = new Set([...a, ...b]).size;
+    return uni === 0 ? 0 : inter / uni;
+}
+
+function isBiographyLike(item) {
+    if (!item || !item.title) return false;
+    const title = (item.title || '').toString().toLowerCase();
+    const desc = (item.description || '').toString().toLowerCase();
+    if (BIO_KEYWORDS.some(k => title.includes(k) || desc.includes(k))) return true;
+    const author = ((item.authors && item.authors[0]) || item.author || '').toString().toLowerCase();
+    if (author) {
+        const cleanAuthor = author.replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(Boolean);
+        const titleWords = title.split(/\s+/).filter(Boolean);
+        const matches = cleanAuthor.filter(tok => titleWords.includes(tok)).length;
+        if (matches >= Math.max(1, Math.floor(cleanAuthor.length / 2))) return true;
+        if (title.trim() === author.trim()) return true;
+    }
+    if (/who is |about |the life of |a life of /.test(title)) return true;
+    return false;
+}
+
+/* Controller */
 exports.getRecommendations = async (req, res) => {
     try {
-        const userId = (req.user && req.user.id) || req.userId || null;
-        const TOP_N = 12;
+        const userId = (req.user && (req.user.id || req.user._id)) || req.userId || null;
+        const TOP_N = Math.min(20, Number(req.query.limit) || 10); // default 10, max 20
 
-        // 1) guest => popular external suggestions
         if (!userId) {
-            const popularSubjects = ['fiction', 'fantasy', 'self help', 'technology', 'history'];
-            const query = `${popularSubjects[0]} ${popularSubjects[1]}`;
-            const external = await getExternalSuggestionsByQuery(query, 12);
-            return res.json({ source: 'external-popular-guest', recommendations: processCandidates(external, TOP_N) });
+            const popular = await getExternalSuggestionsByQuery('fiction fantasy popular', 16);
+            const out = processCandidates(popular, TOP_N, { minPrimariesToFilter: 1 });
+            return res.json({ source: 'external-popular-guest', recommendations: out });
         }
 
-        // 2) load user's books
-        const userBooks = await Book.find({ userId }).lean();
-
-        // 3) if user has no books -> popular external
-        if (!userBooks || userBooks.length === 0) {
-            const popularSubjects = ['fiction', 'fantasy', 'self help', 'technology', 'history'];
-            const query = `${popularSubjects[0]} ${popularSubjects[1]}`;
-            const external = await getExternalSuggestionsByQuery(query, 12);
-            return res.json({ source: 'external-popular', recommendations: processCandidates(external, TOP_N) });
+        // load user's books
+        let userBooks = [];
+        try {
+            userBooks = await Book.find({ userId }).lean().limit(200);
+            if (!userBooks || userBooks.length === 0) {
+                const popular = await getExternalSuggestionsByQuery('fiction fantasy popular', 16);
+                const out = processCandidates(popular, TOP_N, { minPrimariesToFilter: 1 });
+                return res.json({ source: 'external-popular-empty-user', recommendations: out });
+            }
+        } catch (e) {
+            console.warn('Failed to load user books:', e && e.message ? e.message : e);
+            const popular = await getExternalSuggestionsByQuery('fiction fantasy popular', 16);
+            const out = processCandidates(popular, TOP_N, { minPrimariesToFilter: 1 });
+            return res.json({ source: 'external-popular-error-load', recommendations: out });
         }
 
-        // Build excluded set from user's own books
         const userExcludeSet = new Set((userBooks || []).map(b => normalizeTitleAuthorKeyServer(b)));
 
-        // 4) collect tags
-        let userTags = userBooks.flatMap(b => b.tags || []);
-        userTags = userTags.map(t => String(t).toLowerCase().trim()).filter(Boolean);
-        const tagSet = new Set(userTags);
+        // user's primary authors set (normalized) for soft-author-penalty
+        const userAuthorSet = new Set(
+            (userBooks || [])
+                .map(b => ((b.author || (b.authors && b.authors[0]) || '')).toString().toLowerCase().replace(/[^a-z0-9\s]/g, '').trim())
+                .filter(Boolean)
+        );
 
-        // 5) if no tags -> build multi-query per book and interleave
-        if (tagSet.size === 0) {
-            const queries = (userBooks || []).slice(0, 6).map(b => {
-                const titlePart = (b.title || '').toString().trim();
-                const authorPart = (b.author || (b.authors || []).join(' ') || '').toString().trim();
-                return `${titlePart} ${authorPart}`.trim();
-            }).filter(Boolean);
+        const userTags = userBooks.flatMap(b => b.tags || []);
+        const userTagSet = new Set(userTags.map(t => String(t).toLowerCase().trim()).filter(Boolean));
 
-            if (queries.length === 0) {
-                const popularSubjects = ['fiction', 'fantasy', 'self help', 'technology', 'history'];
-                const q = `${popularSubjects[0]} ${popularSubjects[1]}`;
-                const external = await getExternalSuggestionsByQuery(q, 12);
-                return res.json({ source: 'external-popular', recommendations: processCandidates(external, TOP_N, { excludeKeys: userExcludeSet }) });
+        const userTokens = (userBooks || []).map(b => tokenizeForSimilarity(b));
+
+        // Fetch DB pool
+        const pool = await Book.find({ userId: { $ne: userId } }).lean().limit(1200);
+
+        const scoresMap = new Map();
+
+        for (const candidate of pool) {
+            const candKey = normalizeTitleAuthorKeyServer(candidate);
+            if (userExcludeSet.has(candKey)) continue;
+
+            const candTokens = tokenizeForSimilarity(candidate);
+
+            let aggScore = 0;
+            let bestAuthorBonus = 0;
+            let bestTitleBonus = 0;
+
+            for (const uTokens of userTokens) {
+                const jac = jaccardScore(uTokens, candTokens);
+                const candAuthor = ((candidate.authors && candidate.authors[0]) || candidate.author || '').toString().toLowerCase();
+                const authorMatch = Array.from(uTokens).some(t => t === candAuthor);
+                const titleOverlap = jac;
+
+                const sim = (jac * 0.65) + (authorMatch ? 0.45 : 0) + (titleOverlap * 0.25);
+                aggScore += sim;
+
+                if (authorMatch) bestAuthorBonus = Math.max(bestAuthorBonus, 40);
+                bestTitleBonus = Math.max(bestTitleBonus, Math.round(titleOverlap * 60));
             }
 
-            const perQueryResults = await Promise.all(queries.map(q => getExternalSuggestionsByQuery(q, 8)));
+            if (aggScore <= 0) continue;
 
-            const perQueryUnique = perQueryResults.map(list => {
-                return uniqueByKey(list.filter(i => !userExcludeSet.has(i._normKey || normalizeTitleAuthorKeyServer(i))),
-                    it => (it._normKey || normalizeTitleAuthorKeyServer(it)));
+            const pop = Number(candidate.popularity || 0);
+            let finalScore = aggScore * 100 + pop + bestAuthorBonus + bestTitleBonus;
+
+            // Soft penalty: candidate primary author already in user's library -> small penalty (not hard exclude)
+            const candPrimaryAuthor = ((candidate.author || (candidate.authors && candidate.authors[0]) || '')).toString().toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
+            if (candPrimaryAuthor && userAuthorSet.has(candPrimaryAuthor)) {
+                finalScore -= 45; // small penalty to de-prioritize same-author items
+            }
+
+            scoresMap.set(candKey, {
+                book: candidate,
+                score: finalScore,
+                _authorMatchBonus: bestAuthorBonus,
+                _titleMatchBonus: bestTitleBonus
             });
-
-            const perBookLimit = Math.max(2, Math.floor(TOP_N / Math.max(1, queries.length)));
-            const finalList = [];
-            let safety = 0;
-            while (finalList.length < TOP_N && safety < 20) {
-                safety++;
-                let addedThisRound = false;
-                for (let qi = 0; qi < perQueryUnique.length; qi++) {
-                    const slot = perQueryUnique[qi];
-                    if (!slot || slot.length === 0) continue;
-                    let take = 0;
-                    while (take < perBookLimit && slot.length > 0) {
-                        const cand = slot.shift();
-                        if (!cand) break;
-                        const k = cand._normKey || normalizeTitleAuthorKeyServer(cand);
-                        if (finalList.some(x => (x._normKey || normalizeTitleAuthorKeyServer(x)) === k)) continue;
-                        if (userExcludeSet.has(k)) continue; // ensure we don't recommend user's own books
-                        finalList.push(cand);
-                        take++;
-                        addedThisRound = true;
-                        if (finalList.length >= TOP_N) break;
-                    }
-                    if (finalList.length >= TOP_N) break;
-                }
-                if (!addedThisRound) break;
-            }
-
-            if (finalList.length < TOP_N) {
-                const extra = await getExternalSuggestionsByQuery(queries.join(' '), Math.max(6, TOP_N - finalList.length));
-                for (const e of extra) {
-                    const k = e._normKey || normalizeTitleAuthorKeyServer(e);
-                    if (!finalList.some(x => (x._normKey || normalizeTitleAuthorKeyServer(x)) === k) && !userExcludeSet.has(k)) {
-                        finalList.push(e);
-                        if (finalList.length >= TOP_N) break;
-                    }
-                }
-            }
-
-            return res.json({ source: 'external-derived-multi-interleaved', recommendations: processCandidates(finalList, TOP_N, { excludeKeys: userExcludeSet, minPrimariesToFilter: 3 }) });
         }
 
-        // 6) DB-first: tag overlap
-        const pool = await Book.find({
-            userId: { $ne: userId },
-            tags: { $in: Array.from(tagSet) }
-        }).sort({ popularity: -1 }).limit(300).lean();
+        const scoredArr = Array.from(scoresMap.values()).sort((a, b) => b.score - a.score);
 
-        if (pool && pool.length >= 1) {
-            const maxPop = pool.reduce((m, b) => Math.max(m, b.popularity || 0), 1);
-            const tagArray = Array.from(tagSet);
-            const scored = pool.map(book => {
-                const bookTags = new Set((book.tags || []).map(t => String(t).toLowerCase().trim()).filter(Boolean));
-                let common = 0;
-                for (const t of bookTags) if (tagSet.has(t)) common++;
-                const union = new Set([...tagArray, ...Array.from(bookTags)]).size || 1;
-                const overlapRatio = common / union;
-                const popScore = (book.popularity || 0) / maxPop;
-                const score = (overlapRatio * 0.8) + (popScore * 0.35);
-                return { book, score };
-            });
-
-            scored.sort((a, b) => b.score - a.score);
-            const top = scored.slice(0, TOP_N).map(s => ({ ...s.book, _recoScore: Number(s.score.toFixed(4)) }));
-            return res.json({ source: 'db', recommendations: processCandidates(top, TOP_N, { excludeKeys: userExcludeSet }) });
-        }
-
-        // 7) hybrid: insufficient DB results -> external by top tags
-        const tagArray = Array.from(tagSet);
-        const query = tagArray.slice(0, 3).join(' ') || 'popular books';
-        const externalCandidates = await getExternalSuggestionsByQuery(query, 12);
-
-        const combined = uniqueByKey([...(pool || []), ...externalCandidates], item => {
-            if (item._id) return 'db|' + String(item._id);
-            return (item.source || 'ext') + '|' + (item.externalId || item.title);
+        let recommendations = scoredArr.map(s => {
+            const it = { ...s.book };
+            it._authorMatchBonus = s._authorMatchBonus || 0;
+            it._titleMatchBonus = s._titleMatchBonus || 0;
+            return it;
         });
 
-        return res.json({ source: 'hybrid', recommendations: processCandidates(combined, TOP_N, { excludeKeys: userExcludeSet }) });
+        // Diversify with per-author cap (relaxed to 2)
+        const MAX_PER_AUTHOR = 2;
+        const authorCount = new Map();
+        const diversified = [];
 
+        function normAuthorStr(item) {
+            const a = ((item.authors && item.authors[0]) || item.author || "").toString().toLowerCase().replace(/[^a-z0-9\s]/g, "").trim();
+            return a || "__unknown__";
+        }
+
+        for (const it of recommendations) {
+            const an = normAuthorStr(it);
+            const cnt = authorCount.get(an) || 0;
+            if (cnt < MAX_PER_AUTHOR) {
+                diversified.push(it);
+                authorCount.set(an, cnt + 1);
+            }
+            if (diversified.length >= TOP_N) break;
+        }
+
+        if (diversified.length < TOP_N) {
+            for (const it of recommendations) {
+                const already = diversified.some(x => ((x._normKey || normalizeTitleAuthorKeyServer(x)) === (it._normKey || normalizeTitleAuthorKeyServer(it))));
+                if (!already) {
+                    diversified.push(it);
+                    if (diversified.length >= TOP_N) break;
+                }
+            }
+        }
+
+        recommendations = diversified.slice(0, TOP_N);
+
+        // Supplement with external if still short — build seeds using user tags and title tokens (avoid overusing authors)
+        if (recommendations.length < TOP_N) {
+            const seedQueries = [];
+            // use tags/genres first (these are high value for genre variety)
+            if (userTagSet.size > 0) {
+                seedQueries.push(...Array.from(userTagSet).slice(0, 8));
+            }
+            // add some title tokens (not full author names)
+            for (const b of userBooks.slice(0, 8)) {
+                const w = (b.title || '').toString().split(/\s+/).slice(0, 4).join(' ');
+                if (w) seedQueries.push(w);
+            }
+            // fallback popular seeds
+            seedQueries.push('popular books', 'best sellers', 'nonfiction', 'fiction');
+
+            const extResults = [];
+            const uniqQ = Array.from(new Set(seedQueries)).slice(0, 12);
+            for (const q of uniqQ) {
+                const ext = await getExternalSuggestionsByQuery(q, 12);
+                for (const e of ext) {
+                    const k = e._normKey || normalizeTitleAuthorKeyServer(e);
+                    if (userExcludeSet.has(k)) continue;
+                    if (isBiographyLike(e)) continue;
+                    // no hard author exclusion for external; we'll rely on per-author cap to keep variety
+                    if (!recommendations.some(r => (r._normKey || normalizeTitleAuthorKeyServer(r)) === k) &&
+                        !extResults.some(er => (er._normKey || normalizeTitleAuthorKeyServer(er)) === k)) {
+                        extResults.push(e);
+                    }
+                }
+                if (recommendations.length + extResults.length >= TOP_N) break;
+            }
+
+            recommendations = recommendations.concat(extResults).slice(0, TOP_N);
+        }
+
+        const final = processCandidates(recommendations, TOP_N, { excludeKeys: userExcludeSet, minPrimariesToFilter: 1 });
+
+        return res.json({ source: 'item-cf+hybrid-diversified-v5', recommendations: final, count: final.length });
     } catch (err) {
-        console.error('Hybrid recommendation error', err && err.message ? err.message : err);
+        console.error('Hybrid CF recommendation error', err && err.message ? err.message : err);
         return res.status(500).json({ message: 'Server error' });
     }
-};
+}
+
+async function getExternalSuggestionsByQuery(query, perSource = 6) {
+    const [ol, google] = await Promise.all([
+        searchOpenLibrary(query, perSource).catch(e => { console.warn('OL failed', e); return []; }),
+        searchGoogleBooks(query, perSource).catch(e => { console.warn('GB failed', e); return []; })
+    ]);
+    const merged = [...(ol || []), ...(google || [])];
+    const uniq = uniqueByKey(merged, i => (i.source || 'ext') + '|' + (i.externalId || (i.title + '|' + (i.authors?.[0] || ''))));
+    return uniq.map(it => {
+        if (!it._normKey) it._normKey = ((it.title || '') + '|' + ((it.authors && it.authors[0]) || '')).toString().toLowerCase();
+        return it;
+    });
+}
